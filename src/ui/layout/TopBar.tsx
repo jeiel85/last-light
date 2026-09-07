@@ -47,10 +47,15 @@ export function TopBar() {
     setConfirming(false);
     const result = endDay();
     playCue(result.ended ? 'death' : result.pendingEvents > 0 ? 'event' : 'day');
+    const day = state.day + 1;
     announce(
       result.ended
-        ? 'The run has ended.'
-        : `Day ${state.day + 1}. ${result.pendingEvents} event${result.pendingEvents === 1 ? '' : 's'} to resolve.`,
+        ? t('topbar.runEnded')
+        : result.pendingEvents === 0
+          ? t('topbar.dayAdvanced', { day })
+          : result.pendingEvents === 1
+            ? t('topbar.dayAdvancedOne', { day })
+            : t('topbar.dayAdvancedMany', { day, count: result.pendingEvents }),
     );
   };
 

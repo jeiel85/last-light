@@ -14,6 +14,7 @@ import {
   tc,
 } from '@i18n';
 import { coverageFor, expectedContentKeys } from '@i18n/coverage';
+import { resolveJosa } from '@i18n/locales/ko/josa';
 import { RESOURCES } from '@engine';
 import { resourceName } from '@i18n/content';
 
@@ -127,6 +128,37 @@ describe('locale bundles', () => {
       expect(messages.translated / messages.expected).toBeGreaterThanOrEqual(1);
     });
   }
+});
+
+describe('Korean particle selection', () => {
+  it('picks the particle from the syllable the placeholder actually produced', () => {
+    expect(resolveJosa('수물이/가')).toBe('수물이');
+    expect(resolveJosa('정수기이/가')).toBe('정수기가');
+    expect(resolveJosa('부품을/를')).toBe('부품을');
+    expect(resolveJosa('물을/를')).toBe('물을');
+    expect(resolveJosa('연료을/를')).toBe('연료를');
+  });
+
+  it('treats a non-Korean name as ending in a vowel, which is the usual convention', () => {
+    expect(resolveJosa('Bekele이/가')).toBe('Bekele가');
+  });
+
+  it('reads a trailing digit as it is spoken', () => {
+    expect(resolveJosa('3이/가')).toBe('3이');
+    expect(resolveJosa('2이/가')).toBe('2가');
+  });
+
+  it('leaves a string with no particle pair untouched', () => {
+    expect(resolveJosa('20/20')).toBe('20/20');
+  });
+
+  it('runs over translated messages, so no line ships the parenthesised form', () => {
+    setLocale('ko');
+    const offenders = Object.keys(EN_MESSAGES).filter((key) =>
+      /이\(가\)|을\(를\)|은\(는\)/.test(t(key as never)),
+    );
+    expect(offenders).toEqual([]);
+  });
 });
 
 describe('the engine reads the locale without importing React', () => {

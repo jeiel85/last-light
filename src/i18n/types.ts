@@ -70,6 +70,16 @@ export type ContentTable =
 /** A locale's content overlay: `<table>.<id>.<field>` to translated text. */
 export type ContentBundle = Readonly<Record<string, string>>;
 
+/**
+ * A last pass over a finished string, for grammar a lookup table cannot express.
+ *
+ * Korean picks its subject and object particles by whether the preceding syllable ends in
+ * a consonant, which depends on the interpolated value rather than on the template. Rather
+ * than force every such line into the stilted `이(가)` form, a locale may supply a function
+ * that resolves those pairs once the placeholders are filled in.
+ */
+export type LocalePostProcess = (text: string) => string;
+
 /** A locale's interface and engine strings, keyed by message id. */
 export type MessageBundle = Readonly<Record<string, string>>;
 
@@ -77,4 +87,5 @@ export interface LocaleBundle {
   id: LocaleId;
   messages: MessageBundle;
   content: ContentBundle;
+  postProcess?: LocalePostProcess;
 }

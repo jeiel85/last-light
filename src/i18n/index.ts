@@ -80,7 +80,9 @@ export function t(
 ): string {
   const bundle = BUNDLES[locale];
   const translated = bundle?.messages[key];
-  return interpolate(translated ?? EN_MESSAGES[key] ?? key, params);
+  const text = interpolate(translated ?? EN_MESSAGES[key] ?? key, params);
+  /* The fix-up pass only applies to the locale's own text, never to English fallback. */
+  return translated && bundle?.postProcess ? bundle.postProcess(text) : text;
 }
 
 /* ----------------------------------------------------------------- content text */
@@ -97,7 +99,10 @@ export function contentKey(table: ContentTable, id: string, field: string): stri
  */
 export function tc(table: ContentTable, id: string, field: string, fallback: string): string {
   if (current === 'en') return fallback;
-  return BUNDLES[current]?.content[contentKey(table, id, field)] ?? fallback;
+  const bundle = BUNDLES[current];
+  const translated = bundle?.content[contentKey(table, id, field)];
+  if (translated === undefined) return fallback;
+  return bundle?.postProcess ? bundle.postProcess(translated) : translated;
 }
 
 /** Whether the current locale covers a given content field. Used by the coverage report. */

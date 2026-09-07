@@ -1,9 +1,11 @@
 import type { LocaleBundle } from '../../types';
 import { KO_MESSAGES } from './messages';
+import { resolveJosa } from './josa';
 import { KO_CORE } from './content/core';
 import { KO_FACILITIES } from './content/facilities';
 import { KO_ITEMS } from './content/items';
 import { KO_LOCATIONS } from './content/locations';
+import { KO_PEOPLE } from './content/people';
 import { KO_RESEARCH } from './content/research';
 import { KO_RUN } from './content/run';
 import { KO_TRAITS } from './content/traits';
@@ -20,6 +22,7 @@ import { KO_TRAITS } from './content/traits';
 export const KO_BUNDLE: LocaleBundle = {
   id: 'ko',
   messages: KO_MESSAGES,
+  postProcess: resolveJosa,
   content: {
     ...KO_CORE,
     ...KO_FACILITIES,
@@ -28,5 +31,6 @@ export const KO_BUNDLE: LocaleBundle = {
     ...KO_RESEARCH,
     ...KO_LOCATIONS,
     ...KO_RUN,
+    ...KO_PEOPLE,
   },
 };

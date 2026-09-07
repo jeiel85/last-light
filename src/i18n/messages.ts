@@ -57,6 +57,10 @@ export const EN_MESSAGES = {
   'topbar.save': 'Save',
   'topbar.log': 'Log',
   'topbar.settings': 'Settings',
+  'topbar.runEnded': 'The run has ended.',
+  'topbar.dayAdvanced': 'Day {day}. Nothing needs answering.',
+  'topbar.dayAdvancedOne': 'Day {day}. 1 event to resolve.',
+  'topbar.dayAdvancedMany': 'Day {day}. {count} events to resolve.',
   'topbar.thaw': 'thaw ~day {day}',
   'topbar.thawHint': 'The winter breaks, and the run resolves.',
 
