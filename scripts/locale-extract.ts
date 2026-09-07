@@ -77,13 +77,23 @@ const wanted = new Set(process.argv.slice(2));
 const out: Record<string, string> = {};
 
 for (const key of expectedContentKeys()) {
-  const [table, id, ...rest] = key.split('.');
-  if (wanted.size > 0 && !wanted.has(table!)) continue;
+  const table = key.slice(0, key.indexOf('.'));
+  if (wanted.size > 0 && !wanted.has(table)) continue;
+  const remainder = key.slice(table.length + 1);
+  /*
+   * Event and encounter ids contain a dot (`med.the_amputation`), so the id cannot be
+   * taken as the next path segment — it is whichever known id the remainder starts with.
+   */
+  const id = Object.keys(SOURCES[table] ?? {})
+    .filter((candidate) => remainder === candidate || remainder.startsWith(`${candidate}.`))
+    .sort((a, b) => b.length - a.length)[0];
   if (table === 'enemies') {
-    out[key] = id!;
+    out[key] = remainder.slice(0, remainder.lastIndexOf('.'));
     continue;
   }
-  const def = SOURCES[table!]?.[id!];
+  if (!id) continue;
+  const rest = remainder.slice(id.length + 1).split('.');
+  const def = SOURCES[table]?.[id];
   /*
    * `nameForms.3` indexes its list directly, but a facility level is numbered from one
    * while the array is numbered from zero, so that one path is shifted back.
