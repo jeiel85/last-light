@@ -1,3 +1,9 @@
+import { t } from '../../i18n';
+import {
+  conditionName,
+  facilityName as facilityLabel,
+  skillName,
+} from '../../i18n/content';
 import type {
   ConditionId,
   FacilityDef,
@@ -217,7 +223,7 @@ export function generateSurvivor(rng: Rng, options: GenerateOptions): Survivor {
     conditions: [],
     equipment: {},
     assignment: { kind: 'idle' },
-    history: [{ day: options.day, text: 'Reached the vault.', tone: 'neutral' }],
+    history: [{ day: options.day, text: t('engine.history.arrived'), tone: 'neutral' }],
     joinedDay: options.day,
     alive: true,
     stress: 0,
@@ -274,14 +280,26 @@ export function isIncapacitated(survivor: Survivor): boolean {
   });
 }
 
+/** The worst untreated condition's name, or a generic label when there is none to name. */
+function worstConditionLabel(id: string | undefined): string {
+  const def = id ? CONDITION_BY_ID[id] : undefined;
+  return def ? conditionName(def) : t('engine.eff.injured');
+}
+
 export function canJoinExpedition(survivor: Survivor): { ok: boolean; reason?: string } {
-  if (!survivor.alive) return { ok: false, reason: 'Deceased' };
-  if (survivor.health < 40) return { ok: false, reason: 'Too badly hurt' };
-  if (survivor.fatigue > 88) return { ok: false, reason: 'Exhausted' };
+  if (!survivor.alive) return { ok: false, reason: t('engine.join.deceased') };
+  if (survivor.health < 40) return { ok: false, reason: t('engine.join.hurt') };
+  if (survivor.fatigue > 88) return { ok: false, reason: t('engine.join.exhausted') };
   for (const condition of survivor.conditions) {
     const def = CONDITION_BY_ID[condition.id];
     if (def?.blocksExpedition && condition.severity > 25) {
-      return { ok: false, reason: `${def.name} (${Math.round(condition.severity)}%)` };
+      return {
+        ok: false,
+        reason: t('engine.join.condition', {
+          name: conditionName(def),
+          severity: Math.round(condition.severity),
+        }),
+      };
     }
   }
   return { ok: true };
@@ -312,21 +330,25 @@ export function workEfficiency(
   skill: SkillId | undefined,
   ctx: EfficiencyContext = {},
 ): Breakdown {
-  const b = new BreakdownBuilder('Base', 1);
+  const b = new BreakdownBuilder(t('engine.base'), 1);
   const e = BALANCE.efficiency;
 
   if (skill) {
     const level = survivor.skills[skill];
     const factor = remap(level, 0, 10, e.skillMin, e.skillMax);
-    b.mul(`${skillLabel(skill)} ${level}`, factor, `Skill scales output from ${e.skillMin}× at 0 to ${e.skillMax}× at 10.`);
+    b.mul(
+      t('engine.eff.skill', { skill: skillName(skill, skillLabel(skill)), level }),
+      factor,
+      t('engine.eff.skillNote', { min: e.skillMin, max: e.skillMax }),
+    );
   }
 
   const healthFactor = remap(survivor.health, 20, 100, e.healthMin, e.healthMax);
   b.mul(
-    `Health ${Math.round(survivor.health)}`,
+    t('engine.eff.health', { value: Math.round(survivor.health) }),
     healthFactor,
-    healthFactor < 0.85 ? 'Injured survivors work slowly.' : undefined,
-    healthFactor < 0.7 ? 'Assign to Rest, or treat in the Infirmary.' : undefined,
+    healthFactor < 0.85 ? t('engine.eff.healthNote') : undefined,
+    healthFactor < 0.7 ? t('engine.eff.healthFix') : undefined,
   );
 
   const fatigueFactor =
@@ -334,14 +356,14 @@ export function workEfficiency(
       ? remap(survivor.fatigue, 0, BALANCE.needs.fatigueWorkThreshold, e.fatigueMax, 1.0)
       : remap(survivor.fatigue, BALANCE.needs.fatigueWorkThreshold, 100, 1.0, e.fatigueMin);
   b.mul(
-    `Fatigue ${Math.round(survivor.fatigue)}`,
+    t('engine.eff.fatigue', { value: Math.round(survivor.fatigue) }),
     fatigueFactor,
     undefined,
-    fatigueFactor < 0.85 ? 'A rest day restores 40 fatigue.' : undefined,
+    fatigueFactor < 0.85 ? t('engine.eff.fatigueFix') : undefined,
   );
 
   const moraleFactor = remap(survivor.morale, 0, 100, e.moraleMin, e.moraleMax);
-  b.mul(`Morale ${Math.round(survivor.morale)}`, moraleFactor);
+  b.mul(t('engine.eff.morale', { value: Math.round(survivor.morale) }), moraleFactor);
 
   const conditionFactor = conditionWorkFactor(survivor);
   if (conditionFactor < 1) {
@@ -349,23 +371,29 @@ export function workEfficiency(
       .slice()
       .sort((x, y) => y.severity - x.severity)[0];
     b.mul(
-      worst ? CONDITION_BY_ID[worst.id]?.name ?? 'Injured' : 'Injured',
+      worstConditionLabel(worst?.id),
       conditionFactor,
-      'Untreated conditions reduce output.',
-      'Assign a medic to the Infirmary.',
+      t('engine.eff.conditionNote'),
+      t('engine.eff.conditionFix'),
     );
   }
 
   if (ctx.facility && ctx.facilityDef) {
     const levelFactor = e.facilityLevel[ctx.facility.level - 1] ?? 1;
-    b.mul(`${ctx.facilityDef.name} L${ctx.facility.level}`, levelFactor);
+    b.mul(
+      t('engine.facilityLevel', {
+        name: facilityLabel(ctx.facilityDef),
+        level: ctx.facility.level,
+      }),
+      levelFactor,
+    );
     if (ctx.facility.condition < 70) {
       const conditionMul = remap(ctx.facility.condition, 0, 70, 0.55, 1);
       b.mul(
-        'Facility wear',
+        t('engine.eff.wear'),
         conditionMul,
-        `Condition ${Math.round(ctx.facility.condition)}%.`,
-        'Assign someone to repair it in the Base panel.',
+        t('engine.conditionPct', { value: Math.round(ctx.facility.condition) }),
+        t('engine.eff.wearFix'),
       );
     }
   }
@@ -380,28 +408,43 @@ export function workEfficiency(
 
   if (ctx.shift) {
     for (const contribution of T.shiftContributions(survivor, ctx.shift)) {
-      b.mul(`${contribution.traitName} (${ctx.shift})`, contribution.value);
+      b.mul(
+        t('engine.eff.shiftTrait', {
+          trait: contribution.traitName,
+          shift: t(`engine.eff.shift.${ctx.shift}`),
+        }),
+        contribution.value,
+      );
     }
   }
 
   if (ctx.brownedOut) {
-    b.mul('Browned out', e.brownoutFactor, 'No power reaching this facility.', 'Raise its priority or add generation capacity.');
+    b.mul(
+      t('engine.brownedOut'),
+      e.brownoutFactor,
+      t('engine.eff.brownoutNote'),
+      t('engine.eff.brownoutFix'),
+    );
   }
 
   if (ctx.coworkers && ctx.relationships && ctx.coworkers.length > 0) {
     const relFactor = coworkerFactor(survivor, ctx.coworkers, ctx.relationships);
     if (Math.abs(relFactor - 1) > 0.005) {
       b.mul(
-        relFactor >= 1 ? 'Works well with the team' : 'Friction with the team',
+        relFactor >= 1 ? t('engine.eff.teamGood') : t('engine.eff.teamBad'),
         relFactor,
-        relFactor < 1 ? 'Survivors who dislike each other work worse together.' : undefined,
-        relFactor < 1 ? 'Split them across different facilities.' : undefined,
+        relFactor < 1 ? t('engine.eff.teamNote') : undefined,
+        relFactor < 1 ? t('engine.eff.teamFix') : undefined,
       );
     }
   }
 
   if (survivor.grievingDays > 0) {
-    b.mul('Grieving', 0.8, `${survivor.grievingDays} days remaining.`);
+    b.mul(
+      t('engine.eff.grieving'),
+      0.8,
+      t('engine.eff.grievingNote', { days: survivor.grievingDays }),
+    );
   }
 
   return b.build({ min: 0.05, round: 3 });
@@ -497,7 +540,7 @@ export function applyCondition(
     treated: false,
     acquiredDay: day,
   });
-  addHistory(survivor, day, `Suffered ${def.name.toLowerCase()}.`, 'bad');
+  addHistory(survivor, day, t('engine.history.suffered', { condition: conditionName(def).toLowerCase() }), 'bad');
   return true;
 }
 

@@ -58,7 +58,14 @@ export type ContentTable =
   | 'personalities'
   | 'unlocks'
   | 'endings'
-  | 'skills';
+  | 'skills'
+  /**
+   * Combat opponents, keyed by the English phrase written in the encounter data.
+   *
+   * These are short noun phrases ("the pack", "the other crew") composed into combat
+   * outcome lines rather than fields of a definition, so the phrase itself is the id.
+   */
+  | 'enemies';
 
 /** A locale's content overlay: `<table>.<id>.<field>` to translated text. */
 export type ContentBundle = Readonly<Record<string, string>>;

@@ -1,3 +1,12 @@
+import { t } from '../../i18n';
+import { ENDING_BY_ID } from './endings';
+import {
+  conditionName,
+  endingSummary,
+  resourceName,
+  weatherDescription,
+  weatherName,
+} from '../../i18n/content';
 import type {
   DayReport,
   GameState,
@@ -86,7 +95,7 @@ export function advanceDay(state: GameState): AdvanceResult {
     if (expedition.resolved && expedition.returnDay <= state.day) {
       for (const line of deliverExpedition(state, expedition)) {
         notes.push(line);
-        log(state, 'good', line, 'Expedition');
+        log(state, 'good', line, t('engine.channel.expedition'));
       }
     }
   }
@@ -101,10 +110,13 @@ export function advanceDay(state: GameState): AdvanceResult {
     log(
       state,
       'warn',
-      `Power short by ${Math.round(power.deficit)} kW — ${power.brownedOut.length} ${
-        power.brownedOut.length === 1 ? 'facility is' : 'facilities are'
-      } dark.`,
-      'Power',
+      power.brownedOut.length === 1
+        ? t('engine.powerShortOne', { amount: Math.round(power.deficit) })
+        : t('engine.powerShort', {
+            amount: Math.round(power.deficit),
+            count: power.brownedOut.length,
+          }),
+      t('engine.channel.power'),
     );
   }
 
@@ -122,26 +134,27 @@ export function advanceDay(state: GameState): AdvanceResult {
     }
     const run = Number(state.flags[key] ?? 0) + 1;
     state.flags[key] = run;
-    const name = RESOURCES[id].name.toLowerCase();
-    if (run === 1) log(state, 'bad', `Ran out of ${name}.`, 'Stores');
-    else if (run === 2) log(state, 'bad', `A second day with no ${name}.`, 'Stores');
-    else if (run === 3) log(state, 'bad', `Three days without ${name}. It is starting to show on people.`, 'Stores');
-    else if (run % 3 === 0) log(state, 'bad', `${run} days without ${name}.`, 'Stores');
+    const name = resourceName(RESOURCES[id]).toLowerCase();
+    const stores = t('engine.channel.stores');
+    if (run === 1) log(state, 'bad', t('engine.ranOut', { name }), stores);
+    else if (run === 2) log(state, 'bad', t('engine.ranOutSecond', { name }), stores);
+    else if (run === 3) log(state, 'bad', t('engine.ranOutThird', { name }), stores);
+    else if (run % 3 === 0) log(state, 'bad', t('engine.ranOutMany', { name, days: run }), stores);
   }
 
   /* 5 — construction, crafting, research */
   const labour = totalLabourPool(state);
   for (const note of applyConstructionLabour(state, labour)) {
     notes.push(note);
-    log(state, 'good', note, 'Works');
+    log(state, 'good', note, t('engine.channel.works'));
   }
   for (const note of progressCrafting(state)) {
     notes.push(note);
-    log(state, 'good', note, 'Workshop');
+    log(state, 'good', note, t('engine.channel.workshop'));
   }
   for (const note of progressResearch(state, rng)) {
     notes.push(note);
-    log(state, 'good', note, 'Research');
+    log(state, 'good', note, t('engine.channel.research'));
   }
 
   /* 6 — survivor needs */
@@ -158,7 +171,7 @@ export function advanceDay(state: GameState): AdvanceResult {
   const decay = decayFacilities(state, rng);
   for (const note of decay.notes) {
     notes.push(note);
-    log(state, 'bad', note, 'Maintenance');
+    log(state, 'bad', note, t('engine.channel.maintenance'));
   }
 
   /* 10 — world drift */
@@ -198,7 +211,12 @@ export function advanceDay(state: GameState): AdvanceResult {
     state.ending = buildEndingResult(state, endingId);
     state.phase = 'ended';
     state.events.pending = [];
-    log(state, 'system', `Run ended: ${state.ending.summary}`, 'Ending');
+    log(
+      state,
+      'system',
+      t('engine.runEnded', { summary: endingSummaryFor(state.ending.endingId, state.ending.summary) }),
+      t('engine.channel.ending'),
+    );
     state.rng = rng.snapshot();
     return { report, pendingEvents: 0, ended: true };
   }
@@ -236,7 +254,15 @@ function rollWeather(state: GameState, rng: Rng): void {
 
   state.weather = { id: next, streak, forecast };
   if (streak === 1) {
-    log(state, 'info', `${WEATHER[next].name}. ${WEATHER[next].description}`, 'Weather');
+    log(
+      state,
+      'info',
+      t('engine.day.weather', {
+        name: weatherName(WEATHER[next]),
+        description: weatherDescription(WEATHER[next]),
+      }),
+      t('engine.channel.weather'),
+    );
   }
 }
 
@@ -344,7 +370,12 @@ function applySurvivorNeeds(
         const trait = survivor.morale > 45 ? 'hardened' : 'broken';
         if (!survivor.traits.includes(trait) && !survivor.traits.includes('hardened') && !survivor.traits.includes('broken')) {
           survivor.traits.push(trait);
-          addHistory(state.day > 0 ? survivor : survivor, state.day, `Came out of it ${trait === 'hardened' ? 'harder' : 'diminished'}.`, trait === 'hardened' ? 'neutral' : 'bad');
+          addHistory(
+            survivor,
+            state.day,
+            trait === 'hardened' ? t('engine.history.harder') : t('engine.history.diminished'),
+            trait === 'hardened' ? 'neutral' : 'bad',
+          );
         }
       }
     }
@@ -352,16 +383,16 @@ function applySurvivorNeeds(
     if (survivor.stress >= 90 && rng.chance(0.3)) {
       applyCondition(survivor, 'breakdown', 60, state.day);
       survivor.stress = 40;
-      notes.push({ survivorId: survivor.id, text: `${survivor.name} has stopped functioning.`, tone: 'bad' });
+      notes.push({ survivorId: survivor.id, text: t('engine.day.breakdown', { name: survivor.name }), tone: 'bad' });
     }
 
     /* notes */
     if (survivor.hunger > 75) {
-      notes.push({ survivorId: survivor.id, text: `${survivor.name} is starving.`, tone: 'bad' });
+      notes.push({ survivorId: survivor.id, text: t('engine.day.starving', { name: survivor.name }), tone: 'bad' });
     } else if (survivor.fatigue > 85) {
-      notes.push({ survivorId: survivor.id, text: `${survivor.name} is exhausted.`, tone: 'bad' });
+      notes.push({ survivorId: survivor.id, text: t('engine.day.exhausted', { name: survivor.name }), tone: 'bad' });
     } else if (survivor.morale < 25) {
-      notes.push({ survivorId: survivor.id, text: `${survivor.name} is close to giving up.`, tone: 'bad' });
+      notes.push({ survivorId: survivor.id, text: t('engine.day.givingUp', { name: survivor.name }), tone: 'bad' });
     }
   }
 
@@ -426,7 +457,14 @@ function progressConditions(
       if (condition.severity <= 2) {
         survivor.conditions = survivor.conditions.filter((c) => c !== condition);
         state.stats.injuriesTreated += 1;
-        notes.push({ survivorId: survivor.id, text: `${survivor.name} has recovered from ${def.name.toLowerCase()}.`, tone: 'good' });
+        notes.push({
+          survivorId: survivor.id,
+          text: t('engine.day.recovered', {
+            name: survivor.name,
+            condition: conditionName(def).toLowerCase(),
+          }),
+          tone: 'good',
+        });
         continue;
       }
 
@@ -435,7 +473,11 @@ function progressConditions(
         applyCondition(survivor, def.escalatesTo, 45, state.day);
         notes.push({
           survivorId: survivor.id,
-          text: `${survivor.name}'s ${def.name.toLowerCase()} has become ${CONDITION_BY_ID[def.escalatesTo]?.name.toLowerCase()}.`,
+          text: t('engine.day.escalated', {
+            name: survivor.name,
+            from: conditionName(def).toLowerCase(),
+            to: conditionLabel(def.escalatesTo).toLowerCase(),
+          }),
           tone: 'bad',
         });
       }
@@ -456,7 +498,7 @@ function progressConditions(
             ((state.flags['mod:illnessChance'] as number | undefined) ?? 1);
           if (rng.chance(chance)) {
             if (applyCondition(other, condition.id, 25, state.day)) {
-              notes.push({ survivorId: other.id, text: `${other.name} has caught it too.`, tone: 'bad' });
+              notes.push({ survivorId: other.id, text: t('engine.day.caughtIt', { name: other.name }), tone: 'bad' });
             }
           }
         }
@@ -480,7 +522,7 @@ function progressConditions(
       if (survivor.assignment.kind === 'expedition') continue;
       if (rng.chance(risk * T.illnessChanceFactor(survivor))) {
         if (applyCondition(survivor, 'dysentery', 25, state.day)) {
-          notes.push({ survivorId: survivor.id, text: `${survivor.name} is ill from the water.`, tone: 'bad' });
+          notes.push({ survivorId: survivor.id, text: t('engine.day.illFromWater', { name: survivor.name }), tone: 'bad' });
         }
       }
     }
@@ -493,9 +535,21 @@ function worstSeverity(survivor: Survivor): number {
 
 function describeDeath(survivor: Survivor): string {
   const worst = survivor.conditions.slice().sort((a, b) => b.severity - a.severity)[0];
-  if (worst) return `died of ${CONDITION_BY_ID[worst.id]?.name.toLowerCase() ?? worst.id}`;
-  if (survivor.hunger > 90) return 'starved';
-  return 'died of exposure and exhaustion';
+  if (worst) return t('engine.death.ofCondition', { condition: conditionLabel(worst.id).toLowerCase() });
+  if (survivor.hunger > 90) return t('engine.death.starved');
+  return t('engine.death.exposure');
+}
+
+/** A condition's translated name, or its id when the definition has gone. */
+function conditionLabel(id: string): string {
+  const def = CONDITION_BY_ID[id];
+  return def ? conditionName(def) : id;
+}
+
+/** The ending's summary, preferring the definition so it follows the current language. */
+function endingSummaryFor(id: string, stored: string): string {
+  const def = ENDING_BY_ID[id];
+  return def ? endingSummary(def) : stored;
 }
 
 /* ----------------------------------------------------------- hostilities */
@@ -511,8 +565,8 @@ function resolveHostilities(state: GameState, rng: Rng, notes: DayReport['surviv
     applyCondition(victim, 'laceration', rng.int(20, 40), state.day);
     victim.morale = clamp(victim.morale - 10, 0, 100);
     state.resources.hope = clamp(state.resources.hope - 3, 0, 100);
-    notes.push({ survivorId: victim.id, text: `${victim.name} was hurt in a fight.`, tone: 'bad' });
-    log(state, 'bad', `A fight broke out. ${victim.name} came off worse.`, 'Crew');
+    notes.push({ survivorId: victim.id, text: t('engine.day.hurtInFight', { name: victim.name }), tone: 'bad' });
+    log(state, 'bad', t('engine.day.fightBrokeOut', { name: victim.name }), t('engine.channel.crew'));
   }
 
   // Refusal: very low morale survivors stop working.
@@ -525,7 +579,7 @@ function resolveHostilities(state: GameState, rng: Rng, notes: DayReport['surviv
       const index = facility.staff.indexOf(survivor.id);
       if (index >= 0) facility.staff.splice(index, 1);
     }
-    notes.push({ survivorId: survivor.id, text: `${survivor.name} refused their assignment.`, tone: 'bad' });
+    notes.push({ survivorId: survivor.id, text: t('engine.day.refused', { name: survivor.name }), tone: 'bad' });
   }
 
   // Incapacitated survivors are removed from posts.
@@ -550,8 +604,10 @@ function applyDeadlineWarning(state: GameState): void {
     log(
       state,
       'warn',
-      `${remaining} ${remaining === 1 ? 'day' : 'days'} until the road closes.`,
-      'Deadline',
+      remaining === 1
+        ? t('engine.day.deadlineOne')
+        : t('engine.day.deadlineMany', { days: remaining }),
+      t('engine.channel.deadline'),
     );
   }
 }

@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import type { EndingDef, EndingResult, GameState } from '../model/types';
 import { BALANCE } from '../data/balance';
 import { DIFFICULTY_BY_ID } from '../data/difficulties';
@@ -252,7 +253,7 @@ export function buildEndingResult(state: GameState, endingId: string): EndingRes
     survivorNames: names,
     memorial: state.survivors
       .filter((s) => !s.alive)
-      .map((s) => ({ name: fullName(s), day: s.deathDay ?? 0, cause: s.deathCause ?? 'unknown' })),
+      .map((s) => ({ name: fullName(s), day: s.deathDay ?? 0, cause: s.deathCause ?? t('engine.death.unknown') })),
   };
 }
 

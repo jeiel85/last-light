@@ -1,3 +1,5 @@
+import { t } from '../../i18n';
+import { unlockName } from '../../i18n/content';
 import type { GameState, MetaProfile, MetaUnlockDef, UnlockId } from '../model/types';
 import { META_UNLOCKS, UNLOCK_BY_ID } from '../data/metaUnlocks';
 import { SCENARIOS } from '../data/scenarios';
@@ -59,7 +61,16 @@ export function unlockAvailability(profile: MetaProfile): UnlockAvailability[] {
       affordable: !owned && !locked && profile.legacy >= unlock.cost,
       locked,
       ...(locked
-        ? { lockedReason: `Requires ${missing.map((id) => UNLOCK_BY_ID[id]?.name ?? id).join(', ')}` }
+        ? {
+            lockedReason: t('engine.meta.requires', {
+              names: missing
+                .map((id) => {
+                  const def = UNLOCK_BY_ID[id];
+                  return def ? unlockName(def) : id;
+                })
+                .join(', '),
+            }),
+          }
         : {}),
     };
   });
@@ -70,11 +81,11 @@ export function purchaseUnlock(
   id: UnlockId,
 ): { ok: boolean; reason?: string; profile: MetaProfile } {
   const unlock = UNLOCK_BY_ID[id];
-  if (!unlock) return { ok: false, reason: 'Unknown unlock', profile };
-  if (profile.unlocks.includes(id)) return { ok: false, reason: 'Already unlocked', profile };
+  if (!unlock) return { ok: false, reason: t('engine.meta.unknownUnlock'), profile };
+  if (profile.unlocks.includes(id)) return { ok: false, reason: t('engine.meta.alreadyUnlocked'), profile };
   const missing = (unlock.requires ?? []).filter((r) => !profile.unlocks.includes(r));
-  if (missing.length > 0) return { ok: false, reason: 'Prerequisites not met', profile };
-  if (profile.legacy < unlock.cost) return { ok: false, reason: 'Not enough Legacy', profile };
+  if (missing.length > 0) return { ok: false, reason: t('engine.meta.prerequisites'), profile };
+  if (profile.legacy < unlock.cost) return { ok: false, reason: t('engine.meta.notEnoughLegacy'), profile };
 
   return {
     ok: true,

@@ -57,6 +57,9 @@ export const conditionDescription = (def: ConditionDef): string =>
   tc('conditions', def.id, 'description', def.description);
 
 /** Skills are addressed by id; the fallback covers a roll reported against a free-text label. */
+/** A combat opponent's name, keyed by the phrase the encounter data uses. */
+export const enemyName = (phrase: string): string => tc('enemies', phrase, 'name', phrase);
+
 export const skillName = (skill: SkillId | string, fallback: string): string =>
   tc('skills', skill, 'name', fallback);
 

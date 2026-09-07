@@ -1,3 +1,8 @@
+import { t } from '../../i18n';
+import { locationNameForm, researchEffect, researchName } from '../../i18n/content';
+import { ARCHETYPE_BY_ID } from '../data/locations';
+import { FACILITY_BY_ID } from '../data/facilities';
+import { facilityName as facilityLabel } from '../../i18n/content';
 import type { GameState, ResearchDef, ResearchId } from '../model/types';
 import { BreakdownBuilder, type Breakdown } from '../core/breakdown';
 import { BALANCE } from '../data/balance';
@@ -21,12 +26,16 @@ export function insightRate(state: GameState): Breakdown {
   const b = new BreakdownBuilder();
   const lab = findFacility(state, 'laboratory');
 
-  b.base('Working it out by hand', BALANCE.research.baselineInsight);
+  b.base(t('engine.rsr.byHand'), BALANCE.research.baselineInsight);
+  const labLabel = (): string => {
+    const def = FACILITY_BY_ID['laboratory'];
+    return def ? facilityLabel(def) : 'Laboratory';
+  };
 
   if (lab && lab.status === 'operational') {
     const staff = staffOf(state, lab);
     if (staff.length === 0) {
-      b.note('The Laboratory is unstaffed.', undefined, 'Assign a scientist to the Laboratory.');
+      b.note(t('engine.rsr.labUnstaffed'), undefined, t('engine.rsr.labUnstaffedFix'));
     }
     for (const survivor of staff) {
       const efficiency = workEfficiency(survivor, 'science', {
@@ -41,20 +50,20 @@ export function insightRate(state: GameState): Breakdown {
       b.add(`${survivor.name}`, Math.round(contribution * 100) / 100);
     }
     const levelBonus = BALANCE.research.labLevelBonus[lab.level] ?? 1;
-    if (levelBonus !== 1) b.mul(`Laboratory L${lab.level}`, levelBonus);
+    if (levelBonus !== 1) b.mul(t('engine.cbt.securityPost', { name: labLabel(), level: lab.level }), levelBonus);
     if (lab.brownedOut) {
       b.note(
-        'Browned out',
-        'Notebooks and a hand lamp. Progress is slow.',
-        'Raise the Laboratory power priority, or add generation capacity.',
+        t('engine.brownedOut'),
+        t('engine.rsr.labBrownoutNote'),
+        t('engine.rsr.labBrownoutFix'),
       );
     }
   } else {
-    b.note('No Laboratory built.', 'Most research needs one.', 'Build the Laboratory.');
+    b.note(t('engine.rsr.noLab'), t('engine.rsr.noLabNote'), t('engine.rsr.noLabFix'));
   }
 
   const archive = operationalLevel(state, 'deep_archive');
-  if (archive >= 2) b.mul('Deep Archive cross-reference', 1.25);
+  if (archive >= 2) b.mul(t('engine.rsr.deepArchive'), 1.25);
 
   return b.build({ min: 0, round: 2 });
 }
@@ -82,31 +91,31 @@ export function researchAvailability(state: GameState, node: ResearchDef): Resea
   const rate = insightRate(state).total;
   const estimatedDays = rate > 0 ? Math.max(1, Math.ceil(cost / rate)) : null;
 
-  if (completed) return { node, ok: false, reason: 'Completed', cost, estimatedDays, completed, active };
-  if (active) return { node, ok: false, reason: 'In progress', cost, estimatedDays, completed, active };
+  if (completed) return { node, ok: false, reason: t('engine.rsr.completed'), cost, estimatedDays, completed, active };
+  if (active) return { node, ok: false, reason: t('engine.rsr.inProgress'), cost, estimatedDays, completed, active };
 
   const missing = node.requires.filter((id) => !state.research.completed.includes(id));
   if (missing.length > 0) {
     const names = missing.map((id) => RESEARCH_BY_ID[id]?.name ?? id).join(', ');
-    return { node, ok: false, reason: `Requires ${names}`, cost, estimatedDays, completed, active };
+    return { node, ok: false, reason: t('engine.rsr.requires', { names }), cost, estimatedDays, completed, active };
   }
   if (node.requiresFlag && !state.flags[node.requiresFlag]) {
-    return { node, ok: false, reason: 'You have not learned enough yet', cost, estimatedDays, completed, active };
+    return { node, ok: false, reason: t('engine.rsr.notEnough'), cost, estimatedDays, completed, active };
   }
   const lab = findFacility(state, 'laboratory');
   const labLevel = lab && lab.status !== 'building' ? lab.level : 0;
   if (node.tier >= 2 && labLevel < 1) {
-    return { node, ok: false, reason: 'Requires a Laboratory', cost, estimatedDays, completed, active };
+    return { node, ok: false, reason: t('engine.rsr.requiresLab'), cost, estimatedDays, completed, active };
   }
   if (node.tier >= 3 && labLevel < 2) {
-    return { node, ok: false, reason: 'Requires Laboratory level 2', cost, estimatedDays, completed, active };
+    return { node, ok: false, reason: t('engine.rsr.requiresLab2'), cost, estimatedDays, completed, active };
   }
   return { node, ok: true, cost, estimatedDays, completed, active };
 }
 
 export function startResearch(state: GameState, id: ResearchId): { ok: boolean; reason?: string } {
   const node = RESEARCH_BY_ID[id];
-  if (!node) return { ok: false, reason: 'Unknown research' };
+  if (!node) return { ok: false, reason: t('engine.rsr.unknown') };
   const availability = researchAvailability(state, node);
   if (!availability.ok) return { ok: false, reason: availability.reason };
   // Switching projects preserves progress on the abandoned one at a 50% penalty.
@@ -155,7 +164,7 @@ export function progressResearch(state: GameState, rng: Rng): string[] {
     state.research.active = null;
     state.stats.researchCompleted += 1;
     if (node) {
-      notes.push(`Research complete: ${node.name}. ${node.effectText}`);
+      notes.push(t('engine.rsr.complete', { name: researchName(node), effect: researchEffect(node) }));
       notes.push(...applyResearchUnlocks(state, node, rng));
     }
   }
@@ -187,7 +196,16 @@ function applyResearchUnlocks(state: GameState, node: ResearchDef, rng: Rng): st
   if (node.id === 'exp_cartography') {
     const revealed = revealLocations(state, rng, 2, 1);
     if (revealed.length > 0) {
-      notes.push(`District sheets compiled: ${revealed.map((l) => l.name).join(', ')} located.`);
+      notes.push(
+        t('engine.rsr.districts', {
+          names: revealed
+            .map((l) => {
+              const archetype = ARCHETYPE_BY_ID[l.archetypeId];
+              return archetype ? locationNameForm(archetype, l.name) : l.name;
+            })
+            .join(', '),
+        }),
+      );
     }
   }
   return notes;

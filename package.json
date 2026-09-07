@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "validate": "tsx scripts/validate-content.ts",
+    "validate": "tsx scripts/validate-content.ts && tsx scripts/locale-report.ts",
     "simulate": "tsx scripts/simulate.ts",
     "icons": "tsx scripts/generate-icons.ts",
     "e2e": "playwright test",
@@ -21,7 +21,8 @@
     "e2e:install": "playwright install --with-deps chromium",
     "verify": "npm run lint && npm run test && npm run build",
     "deploy:pages": "tsx scripts/deploy-pages.ts",
-    "screenshots": "tsx scripts/screenshots.ts"
+    "screenshots": "tsx scripts/screenshots.ts",
+    "locales": "tsx scripts/locale-report.ts"
   },
   "dependencies": {
     "immer": "^11.1.18",
@@ -47,5 +48,7 @@
     "vite-plugin-pwa": "^1.3.0",
     "vitest": "^5.0.0"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
