@@ -1,5 +1,4 @@
 import { EN_MESSAGES, type MessageKey } from './messages';
-import { KO_BUNDLE } from './locales/ko';
 import {
   DEFAULT_LOCALE,
   LOCALES,
@@ -26,23 +25,109 @@ export { EN_MESSAGES } from './messages';
  * breaking the rule that keeps the simulation headless and testable.
  */
 
-const BUNDLES: Readonly<Record<LocaleId, LocaleBundle | null>> = {
+/**
+ * How each locale's overlay is fetched.
+ *
+ * A locale is loaded on demand rather than imported statically: the Korean bundle is
+ * ~270 kB of text an English-only player would otherwise download and never read. The
+ * loaders are `import()` calls so the bundler gives each locale its own chunk, and the
+ * `Record<LocaleId, ...>` makes adding a language to `LOCALES` without a loader a type
+ * error rather than a locale that silently renders as English.
+ */
+type BundleLoader = () => Promise<LocaleBundle>;
+
+const LOADERS: Readonly<Record<LocaleId, BundleLoader | null>> = {
   // English is the source of truth and lives in the data files, so it needs no overlay.
   en: null,
-  ko: KO_BUNDLE,
+  ko: async () => (await import('./locales/ko')).KO_BUNDLE,
 };
 
+/** Overlays that have finished loading. English is present from the start, as `null`. */
+const BUNDLES = new Map<LocaleId, LocaleBundle | null>([['en', null]]);
+/** In-flight loads, so two switches to the same locale share one request. */
+const pending = new Map<LocaleId, Promise<LocaleBundle | null>>();
+/** Post-processed content, per bundle. See `tc`. */
+const processedContent = new WeakMap<LocaleBundle, Map<string, string>>();
+
 let current: LocaleId = DEFAULT_LOCALE;
+/** Identifies the most recent switch, so a slow load cannot overwrite a later choice. */
+let generation = 0;
 const listeners = new Set<() => void>();
 
 export function getLocale(): LocaleId {
   return current;
 }
 
-export function setLocale(id: LocaleId): void {
-  if (!isLocaleId(id) || id === current) return;
-  current = id;
-  for (const listener of listeners) listener();
+/**
+ * Load a locale's overlay without switching to it.
+ *
+ * Resolves to `null` for English, which has no overlay. A failed load is reported and
+ * resolves to `null` rather than rejecting: a missing translation is a degraded reading
+ * experience, not a reason to take the game down.
+ */
+export function loadLocale(id: LocaleId): Promise<LocaleBundle | null> {
+  if (!isLocaleId(id)) return Promise.resolve(null);
+  const cached = BUNDLES.get(id);
+  if (cached !== undefined) return Promise.resolve(cached);
+  const inFlight = pending.get(id);
+  if (inFlight) return inFlight;
+
+  const loader = LOADERS[id];
+  if (!loader) {
+    BUNDLES.set(id, null);
+    return Promise.resolve(null);
+  }
+  const load = loader()
+    .then((bundle) => {
+      BUNDLES.set(id, bundle);
+      return bundle;
+    })
+    .catch((error: unknown) => {
+      /*
+       * Leave the locale out of the cache so a later attempt can retry — a chunk that
+       * failed on a flaky connection should not be written off for the session.
+       */
+      console.error(`Could not load the ${id} translation; falling back to English.`, error);
+      return null;
+    })
+    .finally(() => {
+      pending.delete(id);
+    });
+  pending.set(id, load);
+  return load;
+}
+
+/**
+ * Switch language, loading the locale's overlay first.
+ *
+ * The switch is applied only once the text is in hand, so nothing renders half-translated,
+ * and a load that fails leaves the previous language in place rather than emptying the
+ * screen.
+ *
+ * Resolves with the locale that is *actually* in effect, which is how a caller learns the
+ * load failed. That matters because the language is a saved setting: silently keeping the
+ * old text while the setting says otherwise leaves the picker disagreeing with the screen,
+ * and re-choosing the language the setting already holds fires no change to retry with.
+ */
+export function setLocale(id: LocaleId): Promise<LocaleId> {
+  if (!isLocaleId(id)) return Promise.resolve(current);
+  /*
+   * The generation is bumped before the early return, not after it. Choosing the language
+   * that is already current is still a decision, and it has to cancel a switch that has
+   * not landed yet: pick Korean, change your mind before the chunk arrives, and without
+   * this the Korean load applies on top of the English you went back to — leaving the
+   * screen in a language the settings disagree with, and no effect left to run to fix it.
+   */
+  const token = (generation += 1);
+  if (id === current) return Promise.resolve(current);
+  return loadLocale(id).then((bundle) => {
+    /* A slower earlier switch must not land on top of a later one the player made. */
+    if (token !== generation) return current;
+    if (bundle === null && LOADERS[id]) return current;
+    current = id;
+    for (const listener of listeners) listener();
+    return current;
+  });
 }
 
 /** Subscribe to locale changes. Returns the unsubscribe function. */
@@ -78,7 +163,7 @@ export function t(
   params?: Record<string, string | number>,
   locale: LocaleId = current,
 ): string {
-  const bundle = BUNDLES[locale];
+  const bundle = BUNDLES.get(locale);
   const translated = bundle?.messages[key];
   const text = interpolate(translated ?? EN_MESSAGES[key] ?? key, params);
   /* The fix-up pass only applies to the locale's own text, never to English fallback. */
@@ -99,19 +184,35 @@ export function contentKey(table: ContentTable, id: string, field: string): stri
  */
 export function tc(table: ContentTable, id: string, field: string, fallback: string): string {
   if (current === 'en') return fallback;
-  const bundle = BUNDLES[current];
-  const translated = bundle?.content[contentKey(table, id, field)];
+  const bundle = BUNDLES.get(current);
+  const key = contentKey(table, id, field);
+  const translated = bundle?.content[key];
   if (translated === undefined) return fallback;
-  return bundle?.postProcess ? bundle.postProcess(translated) : translated;
+  if (!bundle?.postProcess) return translated;
+
+  /*
+   * Content carries no placeholders, so the fix-up pass over a given key always produces
+   * the same string — and `tc` is called from render, once per visible line per frame.
+   * Memoising it per bundle turns a repeated scan into a map lookup; `t` cannot do the
+   * same because its result depends on the parameters it was given.
+   */
+  let processed = processedContent.get(bundle);
+  if (!processed) {
+    processed = new Map();
+    processedContent.set(bundle, processed);
+  }
+  let value = processed.get(key);
+  if (value === undefined) {
+    value = bundle.postProcess(translated);
+    processed.set(key, value);
+  }
+  return value;
 }
 
-/** Whether the current locale covers a given content field. Used by the coverage report. */
-export function hasTranslation(table: ContentTable, id: string, field: string): boolean {
-  if (current === 'en') return true;
-  return Boolean(BUNDLES[current]?.content[contentKey(table, id, field)]);
-}
-
-/** The raw bundle for a locale, for tooling and tests. */
+/**
+ * The raw bundle for a locale, or `null` for English and for any locale not yet loaded.
+ * Call `loadLocale` first if you need it present; tooling and tests do.
+ */
 export function bundleFor(id: LocaleId): LocaleBundle | null {
-  return BUNDLES[id];
+  return BUNDLES.get(id) ?? null;
 }

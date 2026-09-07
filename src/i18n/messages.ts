@@ -467,6 +467,7 @@ export const EN_MESSAGES = {
   'settings.title': 'Settings',
   'settings.language': 'Language',
   'settings.languageHint': 'Anything not yet translated stays in English.',
+  'settings.languageFailed': 'That language could not be loaded. Check your connection and try again.',
   'settings.motion': 'Motion',
   'settings.motionHint': 'Removes ambient flicker, scanlines, and transitions.',
   'settings.motion.full': 'Full',

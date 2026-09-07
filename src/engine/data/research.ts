@@ -1,7 +1,7 @@
 import type { ResearchBranch, ResearchDef, ResearchId } from '../model/types';
 
 /**
- * The research tree: 34 nodes across 7 branches.
+ * The research tree: 38 nodes across 7 branches.
  *
  * Design rule from GAME_DESIGN §8: at least half of all nodes must unlock a *possibility*
  * — a recipe, a facility, an action, or an ending path — rather than a percentage. Flat

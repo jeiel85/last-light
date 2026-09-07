@@ -27,7 +27,7 @@ function bar(fraction: number): string {
 
 let stale = 0;
 
-for (const locale of coverageReport()) {
+for (const locale of await coverageReport()) {
   const fraction = locale.expected === 0 ? 1 : locale.translated / locale.expected;
   console.log('');
   console.log(

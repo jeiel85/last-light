@@ -66,9 +66,9 @@ export const KO_FACILITIES: ContentBundle = {
   'facilities.laboratory.name': '연구실',
   'facilities.laboratory.description':
     '작업대 둘, 재물대가 금 간 현미경, 그리고 아무도 지우면 안 되는 화이트보드.',
-  'facilities.laboratory.levels.1.summary': '연구 통찰을 생산한다. 대부분의 연구에 필요하다.',
-  'facilities.laboratory.levels.2.summary': '통찰 +45%. 2등급 연구 개방.',
-  'facilities.laboratory.levels.3.summary': '통찰 +90%. 3등급 연구와 시료 분석 개방.',
+  'facilities.laboratory.levels.1.summary': '연구 통찰을 생산한다. 2등급 연구 개방.',
+  'facilities.laboratory.levels.2.summary': '통찰 +70%. 3등급 연구 개방.',
+  'facilities.laboratory.levels.3.summary': '통찰 +140%. 연구대 한 자리 추가.',
 
   'facilities.hydroponics.name': '수경 재배실',
   'facilities.hydroponics.description':

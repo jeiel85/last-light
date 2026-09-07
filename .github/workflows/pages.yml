@@ -44,11 +44,14 @@ jobs:
           # A single page with no routing, but a stray deep link should still load the game.
           cp dist/index.html dist/404.html
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+          # v5 drops dotfiles from the tarball unless asked; .nojekyll is the whole
+          # reason this step has a preparation step before it.
+          include-hidden-files: true
 
   deploy:
     needs: build
@@ -59,4 +62,4 @@ jobs:
 
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

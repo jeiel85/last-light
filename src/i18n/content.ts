@@ -6,6 +6,7 @@ import type {
   EncounterDef,
   EncounterOutcome,
   EndingDef,
+  EnemyId,
   EventChoice,
   EventDef,
   FacilityDef,
@@ -21,6 +22,12 @@ import type {
   TraitDef,
   WeatherDef,
 } from '@engine';
+/*
+ * By relative path, and from the data file rather than the engine barrel: the engine's
+ * combat code imports this module, so reaching back through the barrel would close a
+ * cycle. `data/encounters` imports nothing but types.
+ */
+import { ENEMY_BY_ID } from '../engine/data/encounters';
 import { tc } from './index';
 
 /**
@@ -57,8 +64,14 @@ export const conditionDescription = (def: ConditionDef): string =>
   tc('conditions', def.id, 'description', def.description);
 
 /** Skills are addressed by id; the fallback covers a roll reported against a free-text label. */
-/** A combat opponent's name, keyed by the phrase the encounter data uses. */
-export const enemyName = (phrase: string): string => tc('enemies', phrase, 'name', phrase);
+/**
+ * A combat opponent's name.
+ *
+ * The fallback is the English phrase from `ENEMIES`, so an id the data no longer defines
+ * reads as the id rather than as an empty string — `npm run validate` is what catches it.
+ */
+export const enemyName = (id: EnemyId): string =>
+  tc('enemies', id, 'name', ENEMY_BY_ID[id]?.name ?? id);
 
 export const skillName = (skill: SkillId | string, fallback: string): string =>
   tc('skills', skill, 'name', fallback);

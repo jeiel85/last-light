@@ -22,6 +22,8 @@ export function App() {
   const bootstrap = useGameStore((s) => s.bootstrap);
   const loaded = useGameStore((s) => s.loaded);
   const settings = useGameStore((s) => s.settings);
+  const setSettings = useGameStore((s) => s.setSettings);
+  const notify = useGameStore((s) => s.notify);
   const state = useGameStore((s) => s.state);
   const screen = useUiStore((s) => s.screen);
   const setScreen = useUiStore((s) => s.setScreen);
@@ -37,8 +39,25 @@ export function App() {
    * only the interface around them.
    */
   useEffect(() => {
-    setLocale(settings.locale);
-  }, [settings.locale]);
+    let abandoned = false;
+    /*
+     * Not awaited for its timing — `bootstrap` already waited for the language the player
+     * boots into, so this only ever covers a mid-session switch, which applies itself once
+     * the text arrives — but awaited for its answer. A locale is fetched on demand and the
+     * fetch can fail, and the language is a saved setting: leaving it set to a language
+     * that is not on screen puts the picker out of step with the game, and re-choosing the
+     * value the picker already holds fires no change to retry with. So put the setting back
+     * to what is actually rendering, and say why.
+     */
+    void setLocale(settings.locale).then((applied) => {
+      if (abandoned || applied === settings.locale) return;
+      setSettings({ locale: applied });
+      notify(t('settings.languageFailed'), 'bad');
+    });
+    return () => {
+      abandoned = true;
+    };
+  }, [settings.locale, setSettings, notify, t]);
 
   const locale = useLocale();
   useEffect(() => {

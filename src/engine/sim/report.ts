@@ -18,6 +18,15 @@ export interface BalanceWarning {
   message: string;
 }
 
+export interface ResearchTierStat {
+  tier: number;
+  nodes: number;
+  /** Nodes at this tier that no run in the batch ever completed. */
+  never: number;
+  /** Mean nodes of this tier completed per run. */
+  perRun: number;
+}
+
 export interface BalanceReport {
   runs: number;
   errors: number;
@@ -32,6 +41,10 @@ export interface BalanceReport {
   deathCauses: Record<string, number>;
   unusedFacilities: string[];
   unusedResearch: string[];
+  /** How much of each research tier a batch reached, and how often. */
+  researchTiers: ResearchTierStat[];
+  /** Mean research nodes completed per run. */
+  meanResearchCompleted: number;
   unseenEvents: string[];
   strategyWinRates: Record<string, { runs: number; wins: number; rate: number }>;
   resourceRunaway: string[];
@@ -75,6 +88,32 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
 
   const unusedFacilities = FACILITIES.filter((f) => !facilitiesSeen.has(f.id)).map((f) => f.id);
   const unusedResearch = RESEARCH.filter((r) => !researchSeen.has(r.id)).map((r) => r.id);
+
+  /*
+   * Per tier, not just per node. A tier nobody ever reaches is a different fault from a
+   * node nobody chooses: it means something gates the tier — a facility level, a
+   * prerequisite chain — rather than that its price is a little high. Reading only the
+   * flat "never researched" list hid exactly that, because the list never said that all
+   * ten of the nodes on it were the whole of tier 3.
+   */
+  const researchTiers: ResearchTierStat[] = [...new Set(RESEARCH.map((r) => r.tier))]
+    .sort((a, b) => a - b)
+    .map((tier) => {
+      const nodes = RESEARCH.filter((r) => r.tier === tier);
+      const ids = new Set(nodes.map((r) => r.id));
+      const completions = results.reduce(
+        (acc, result) => acc + result.researchUsed.filter((id) => ids.has(id)).length,
+        0,
+      );
+      return {
+        tier,
+        nodes: nodes.length,
+        never: nodes.filter((r) => !researchSeen.has(r.id)).length,
+        perRun: completions / Math.max(1, runs),
+      };
+    });
+  const meanResearchCompleted =
+    results.reduce((acc, r) => acc + r.researchCompleted, 0) / Math.max(1, runs);
   const unseenEvents = EVENTS.filter((e) => !e.scheduledOnly && !eventsSeen.has(e.id)).map((e) => e.id);
 
   const strategyWinRates: Record<string, { runs: number; wins: number; rate: number }> = {};
@@ -156,6 +195,16 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
     });
   }
 
+  for (const tier of researchTiers) {
+    if (tier.never === tier.nodes && tier.nodes > 0) {
+      warnings.push({
+        severity: 'warn',
+        code: 'unreachable-tier',
+        message: `No run completed a single tier-${tier.tier} research node. All ${tier.nodes} of them are authored content the game never shows; look for the gate before the cost.`,
+      });
+    }
+  }
+
   if (unseenEvents.length > EVENTS.length * 0.3) {
     warnings.push({
       severity: 'info',
@@ -199,6 +248,8 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
     deathCauses,
     unusedFacilities,
     unusedResearch,
+    researchTiers,
+    meanResearchCompleted,
     unseenEvents,
     strategyWinRates,
     resourceRunaway,
@@ -247,6 +298,12 @@ export function formatReport(report: BalanceReport): string {
   if (report.unusedFacilities.length > 0) {
     lines.push(`  never built: ${report.unusedFacilities.join(', ')}`);
   }
+  lines.push(
+    `  research    ${report.meanResearchCompleted.toFixed(1)} of ${RESEARCH.length} nodes per run  ` +
+      report.researchTiers
+        .map((tier) => `t${tier.tier} ${tier.perRun.toFixed(1)}/${tier.nodes}`)
+        .join('  '),
+  );
   if (report.unusedResearch.length > 0) {
     lines.push(`  never researched (${report.unusedResearch.length}): ${report.unusedResearch.slice(0, 12).join(', ')}${report.unusedResearch.length > 12 ? ' …' : ''}`);
   }

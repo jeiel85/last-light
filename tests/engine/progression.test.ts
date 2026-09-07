@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BALANCE,
   Crafting,
+  FACILITY_BY_ID,
   ITEM_BY_ID,
   Inventory,
   RECIPES,
@@ -193,6 +195,44 @@ describe('research', () => {
     const tier2 = RESEARCH.find((n) => n.tier >= 2 && n.requires.length === 0);
     if (!tier2) return;
     expect(Research.researchAvailability(state, tier2).ok).toBe(false);
+  });
+
+  /*
+   * The laboratory's level summaries are the only place the game tells a player what an
+   * upgrade buys, and they were wrong on both counts: they named the wrong level for each
+   * research tier and quoted bonuses that did not match `labLevelBonus`, so a player
+   * reading them over-invested by a level. These tie the prose to the numbers it claims.
+   */
+  it('unlocks each research tier at the laboratory level its summary advertises', () => {
+    const levels = FACILITY_BY_ID['laboratory']!.levels;
+    for (const tier of [2, 3]) {
+      const node = RESEARCH.find((n) => n.tier === tier && n.requires.length === 0)
+        ?? RESEARCH.find((n) => n.tier === tier)!;
+      /* The lowest level at which a node of this tier stops citing the laboratory. */
+      const unlockedAt = [0, 1, 2, 3].find((level) => {
+        const state = newState();
+        if (level > 0) placeFacility(state, 'laboratory', level);
+        for (const id of node.requires) state.research.completed.push(id);
+        return !Research.researchAvailability(state, node).reason?.includes('Laboratory');
+      });
+      expect(unlockedAt, `no laboratory level unlocks tier ${tier}`).toBeDefined();
+      expect(
+        levels[unlockedAt! - 1]?.summary,
+        `the level-${unlockedAt} summary should be the one promising tier-${tier} research`,
+      ).toContain(`tier-${tier} research`);
+    }
+  });
+
+  it('quotes the insight bonus the balance table actually applies', () => {
+    const levels = FACILITY_BY_ID['laboratory']!.levels;
+    levels.forEach((level, index) => {
+      const quoted = /([+-]\d+)% insight/.exec(level.summary ?? '');
+      if (!quoted) return;
+      const factor = BALANCE.research.labLevelBonus[index + 1] ?? 1;
+      expect(Number(quoted[1]), `the level-${index + 1} summary quotes ${quoted[1]}%`).toBe(
+        Math.round((factor - 1) * 100),
+      );
+    });
   });
 
   it('gates nodes behind their prerequisites and names them', () => {

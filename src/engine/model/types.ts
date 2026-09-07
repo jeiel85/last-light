@@ -28,6 +28,20 @@ export type DifficultyId = string;
 export type ModifierId = string;
 export type EncounterId = string;
 export type UnlockId = string;
+/** A combat opponent, defined in `data/encounters.ts` as `ENEMIES`. */
+export type EnemyId = string;
+
+/**
+ * A combat opponent: an id, and the English noun phrase the outcome lines are built from.
+ *
+ * These used to be keyed by the phrase itself, which meant rewording the English silently
+ * orphaned every translation of it. The id is now the identity and the phrase is a field
+ * like any other, so an edit to the wording is just an edit to the wording.
+ */
+export interface EnemyDef {
+  id: EnemyId;
+  name: string;
+}
 
 /* -------------------------------------------------------------------- resources */
 
@@ -1023,7 +1037,7 @@ export interface EncounterOutcome {
   ammo?: number;
   /** Carried into later beats: preparation raises combat power and lowers injury odds. */
   preparation?: number;
-  combat?: { enemy: string; threatScale: number };
+  combat?: { enemy: EnemyId; threatScale: number };
   lore?: LoreId[];
   flag?: string;
   relationship?: number;

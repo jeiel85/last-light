@@ -1,7 +1,7 @@
 import { BACKGROUNDS } from '../engine/data/backgrounds';
 import { CONDITIONS } from '../engine/data/conditions';
 import { DIFFICULTIES } from '../engine/data/difficulties';
-import { ENCOUNTERS } from '../engine/data/encounters';
+import { ENCOUNTERS, ENEMIES } from '../engine/data/encounters';
 import { EVENTS } from '../engine/data/events';
 import { FACILITIES } from '../engine/data/facilities';
 import { ITEMS } from '../engine/data/items';
@@ -17,7 +17,7 @@ import { WEATHER_LIST } from '../engine/data/weather';
 import { ENDINGS } from '../engine/systems/endings';
 import { SKILL_IDS } from '../engine/model/types';
 import { EN_MESSAGES } from './messages';
-import { bundleFor, contentKey } from './index';
+import { contentKey, loadLocale } from './index';
 import { LOCALES, type ContentTable, type LocaleId } from './types';
 
 /**
@@ -47,11 +47,25 @@ export interface LocaleCoverage {
   stale: string[];
 }
 
-/** Every content key the game can ask for, in the order a translator would meet them. */
-export function expectedContentKeys(): string[] {
-  const keys: string[] = [];
-  const add = (table: ContentTable, id: string, field: string) =>
-    keys.push(contentKey(table, id, field));
+/**
+ * One translatable string, before it is flattened into a key.
+ *
+ * The parts are kept apart because a key cannot be taken apart again: event and encounter
+ * ids contain dots, so `events.med.the_amputation.title` has no unambiguous split. Tooling
+ * that needs the id — the extractor, which has to walk into the definition — reads these
+ * rather than guessing at the string.
+ */
+export interface ContentEntry {
+  table: ContentTable;
+  id: string;
+  /** The path within the definition, e.g. `choices.intervene.label`. */
+  field: string;
+}
+
+/** Every content string the game can ask for, in the order a translator would meet them. */
+export function expectedContentEntries(): ContentEntry[] {
+  const keys: ContentEntry[] = [];
+  const add = (table: ContentTable, id: string, field: string) => keys.push({ table, id, field });
   const maybe = (table: ContentTable, id: string, field: string, value: unknown) => {
     if (typeof value === 'string' && value.length > 0) add(table, id, field);
   };
@@ -110,21 +124,14 @@ export function expectedContentKeys(): string[] {
     }
   }
 
-  /* Combat opponents are keyed by the phrase itself; the same phrase recurs across sites. */
-  const enemies = new Set<string>();
-  for (const def of ENCOUNTERS) {
-    for (const choice of def.choices) {
-      for (const branch of ['outcome', 'onSuccess', 'onFailure'] as const) {
-        const outcome = (choice as unknown as Record<string, unknown>)[branch] as
-          | { combat?: { enemy?: string } }
-          | undefined;
-        if (outcome?.combat?.enemy) enemies.add(outcome.combat.enemy);
-      }
-    }
-  }
-  for (const enemy of [...enemies].sort()) add('enemies', enemy, 'name');
+  for (const def of ENEMIES) add('enemies', def.id, 'name');
 
   return keys;
+}
+
+/** The same set, flattened to the keys a locale file is written in. */
+export function expectedContentKeys(): string[] {
+  return expectedContentEntries().map((entry) => contentKey(entry.table, entry.id, entry.field));
 }
 
 /** The table a content key belongs to, for grouping the report. */
@@ -132,8 +139,12 @@ function tableOf(key: string): ContentTable {
   return key.slice(0, key.indexOf('.')) as ContentTable;
 }
 
-export function coverageFor(locale: LocaleId): LocaleCoverage {
-  const bundle = bundleFor(locale);
+/**
+ * Asynchronous because a locale's overlay is fetched on demand — the report has to ask for
+ * the bundle rather than assume the runtime already holds it.
+ */
+export async function coverageFor(locale: LocaleId): Promise<LocaleCoverage> {
+  const bundle = await loadLocale(locale);
   const contentKeys = expectedContentKeys();
   const messageKeys = Object.keys(EN_MESSAGES);
   const known = new Set(contentKeys);
@@ -176,6 +187,6 @@ export function coverageFor(locale: LocaleId): LocaleCoverage {
 }
 
 /** Coverage for every locale the game ships, English first. */
-export function coverageReport(): LocaleCoverage[] {
-  return LOCALES.map((locale) => coverageFor(locale.id));
+export function coverageReport(): Promise<LocaleCoverage[]> {
+  return Promise.all(LOCALES.map((locale) => coverageFor(locale.id)));
 }
