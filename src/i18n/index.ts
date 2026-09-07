@@ -106,8 +106,16 @@ export function loadLocale(id: LocaleId): Promise<LocaleBundle | null> {
  * player's language; a mid-session switch does not need to.
  */
 export function setLocale(id: LocaleId): Promise<void> {
-  if (!isLocaleId(id) || id === current) return Promise.resolve();
+  if (!isLocaleId(id)) return Promise.resolve();
+  /*
+   * The generation is bumped before the early return, not after it. Choosing the language
+   * that is already current is still a decision, and it has to cancel a switch that has
+   * not landed yet: pick Korean, change your mind before the chunk arrives, and without
+   * this the Korean load applies on top of the English you went back to — leaving the
+   * screen in a language the settings disagree with, and no effect left to run to fix it.
+   */
   const token = (generation += 1);
+  if (id === current) return Promise.resolve();
   return loadLocale(id).then((bundle) => {
     /* A slower earlier switch must not land on top of a later one the player made. */
     if (token !== generation) return;

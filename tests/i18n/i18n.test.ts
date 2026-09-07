@@ -160,6 +160,14 @@ describe('locales load on demand', () => {
     expect(t('engine.channel.stores')).not.toBe(EN_MESSAGES['engine.channel.stores']);
   });
 
+  it('lets a change of mind cancel a switch that has not landed', async () => {
+    /* Pick Korean, go back to English before the chunk arrives: English must win. */
+    const korean = setLocale('ko');
+    await setLocale('en');
+    await korean;
+    expect(getLocale()).toBe('en');
+  });
+
   it('gives every locale a loader, so a new language cannot ship as silent English', async () => {
     for (const locale of LOCALES) {
       const bundle = await loadLocale(locale.id);
