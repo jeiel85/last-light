@@ -133,7 +133,7 @@ export function expeditionForecast(
     danger: location.danger,
     threatScale: 1,
     preparation: 0,
-    enemy: 'a hostile group',
+    enemy: 'hostile_group',
   });
 
   const carry = new BreakdownBuilder();

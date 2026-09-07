@@ -9,8 +9,9 @@
  */
 
 import { EVENTS } from '../src/engine/data/events';
-import { ENCOUNTERS } from '../src/engine/data/encounters';
-import { expectedContentKeys } from '../src/i18n/coverage';
+import { ENCOUNTERS, ENEMIES } from '../src/engine/data/encounters';
+import { contentKey } from '../src/i18n';
+import { expectedContentEntries } from '../src/i18n/coverage';
 import { RESOURCES } from '../src/engine/data/resources';
 import { WEATHER_LIST } from '../src/engine/data/weather';
 import { DIFFICULTIES } from '../src/engine/data/difficulties';
@@ -52,6 +53,7 @@ index('lore', LORE);
 index('endings', ENDINGS);
 index('events', EVENTS);
 index('encounters', ENCOUNTERS);
+index('enemies', ENEMIES);
 SOURCES['skills'] = Object.fromEntries(
   (['engineering', 'medicine', 'science', 'scavenging', 'combat', 'cooking', 'botany', 'negotiation'] as const).map(
     (id) => [id, { name: Survivors.skillLabel(id) }],
@@ -76,23 +78,14 @@ function pick(root: unknown, path: string[]): unknown {
 const wanted = new Set(process.argv.slice(2));
 const out: Record<string, string> = {};
 
-for (const key of expectedContentKeys()) {
-  const table = key.slice(0, key.indexOf('.'));
+/*
+ * The ledger hands over `{ table, id, field }` rather than a flat key, so the id never has
+ * to be recovered from the string. It could not be recovered reliably anyway: event and
+ * encounter ids contain dots, so `events.med.the_amputation.title` has no single split.
+ */
+for (const { table, id, field } of expectedContentEntries()) {
   if (wanted.size > 0 && !wanted.has(table)) continue;
-  const remainder = key.slice(table.length + 1);
-  /*
-   * Event and encounter ids contain a dot (`med.the_amputation`), so the id cannot be
-   * taken as the next path segment — it is whichever known id the remainder starts with.
-   */
-  const id = Object.keys(SOURCES[table] ?? {})
-    .filter((candidate) => remainder === candidate || remainder.startsWith(`${candidate}.`))
-    .sort((a, b) => b.length - a.length)[0];
-  if (table === 'enemies') {
-    out[key] = remainder.slice(0, remainder.lastIndexOf('.'));
-    continue;
-  }
-  if (!id) continue;
-  const rest = remainder.slice(id.length + 1).split('.');
+  const rest = field.split('.');
   const def = SOURCES[table]?.[id];
   /*
    * `nameForms.3` indexes its list directly, but a facility level is numbered from one
@@ -103,7 +96,7 @@ for (const key of expectedContentKeys()) {
       ? ['levels', String(Number(rest[1]) - 1), ...rest.slice(2)]
       : rest;
   const value = pick(def, path);
-  if (typeof value === 'string') out[key] = value;
+  if (typeof value === 'string') out[contentKey(table, id, field)] = value;
 }
 
 console.log(JSON.stringify(out, null, 2));

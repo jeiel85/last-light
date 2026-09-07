@@ -125,7 +125,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   async bootstrap() {
     const { profile, settings } = await readMeta();
-    setLocale(settings.locale);
+    /*
+     * Awaited, not fired off: a locale's text is fetched on demand now, and a first paint
+     * in English that flips to Korean a moment later reads as a bug to the player who
+     * chose Korean. Boot is already waiting on storage, so this costs one parallel fetch.
+     */
+    await setLocale(settings.locale);
 
     /*
      * A finished run is restored on load so its report survives a refresh. An ending is the

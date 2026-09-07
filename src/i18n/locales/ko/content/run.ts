@@ -165,11 +165,12 @@ export const KO_RUN: ContentBundle = {
   'personalities.fierce.description': '가끔 문제가 될 만큼 사람을 감싼다.',
 
   /* -------------------------------------------------------------- 상대 */
-  'enemies.a pack of dogs.name': '들개 무리',
-  'enemies.the ambush.name': '매복조',
-  'enemies.the follower.name': '뒤를 밟던 자',
-  'enemies.the gate crew.name': '정문 패거리',
-  'enemies.the household.name': '그 집 사람들',
-  'enemies.the other crew.name': '다른 무리',
-  'enemies.the pack.name': '무리',
+  'enemies.dogs.name': '들개 무리',
+  'enemies.ambush.name': '매복조',
+  'enemies.follower.name': '뒤를 밟던 자',
+  'enemies.gate_crew.name': '정문 패거리',
+  'enemies.hostile_group.name': '적대 집단',
+  'enemies.household.name': '그 집 사람들',
+  'enemies.other_crew.name': '다른 무리',
+  'enemies.pack.name': '무리',
 };

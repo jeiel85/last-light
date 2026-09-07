@@ -262,7 +262,7 @@ changes a survivor's state, or unlocks a facility action.
 
 ## 8. Research
 
-**34 nodes, 7 branches.** Research is committed as a project; Laboratory staff generate
+**38 nodes, 7 branches.** Research is committed as a project; Laboratory staff generate
 *insight* per day. Nodes cost insight and sometimes an item or a discovery.
 
 | Branch | Theme | Sample terminal node |

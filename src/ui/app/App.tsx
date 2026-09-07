@@ -37,7 +37,12 @@ export function App() {
    * only the interface around them.
    */
   useEffect(() => {
-    setLocale(settings.locale);
+    /*
+     * Not awaited: `bootstrap` already waited for the language the player boots into, so
+     * this only ever covers a mid-session switch, which applies itself once the text
+     * arrives. Nothing renders half-translated in between.
+     */
+    void setLocale(settings.locale);
   }, [settings.locale]);
 
   const locale = useLocale();

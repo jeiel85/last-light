@@ -14,7 +14,7 @@
 import { BACKGROUNDS } from '../engine/data/backgrounds';
 import { CONDITIONS, CONDITION_BY_ID } from '../engine/data/conditions';
 import { DIFFICULTIES } from '../engine/data/difficulties';
-import { ENCOUNTERS } from '../engine/data/encounters';
+import { ENCOUNTERS, ENEMIES, ENEMY_BY_ID } from '../engine/data/encounters';
 import { EVENTS, EVENT_BY_ID } from '../engine/data/events';
 import { FACILITIES, FACILITY_BY_ID } from '../engine/data/facilities';
 import { ITEMS, ITEM_BY_ID } from '../engine/data/items';
@@ -445,6 +445,11 @@ function checkLocations(c: Collector): void {
 }
 
 function checkEncounters(c: Collector): void {
+  duplicates(c, 'enemies', ENEMIES.map((e) => e.id));
+  for (const enemy of ENEMIES) {
+    if (!enemy.name) c.error(`enemies/${enemy.id}`, 'has no name for the combat line to use');
+  }
+
   duplicates(c, 'encounters', ENCOUNTERS.map((e) => e.id));
   for (const encounter of ENCOUNTERS) {
     const where = `encounters/${encounter.id}`;
@@ -485,6 +490,8 @@ function checkEncounters(c: Collector): void {
         for (const entry of outcome.items ?? []) c.ref(choiceWhere, 'item', entry.itemId, ITEM_BY_ID);
         c.ref(choiceWhere, 'item', outcome.consumeItem, ITEM_BY_ID);
         if (outcome.illness) c.ref(choiceWhere, 'condition', outcome.illness.conditionId, CONDITION_BY_ID);
+        /* An unknown opponent id would print as the id itself in the combat line. */
+        if (outcome.combat) c.ref(choiceWhere, 'enemy', outcome.combat.enemy, ENEMY_BY_ID);
         for (const loreId of outcome.lore ?? []) c.ref(choiceWhere, 'lore entry', loreId, LORE_BY_ID);
         for (const resource of Object.keys(outcome.resources ?? {})) {
           c.ref(choiceWhere, 'resource', resource, RESOURCE_TABLE);

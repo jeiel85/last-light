@@ -1,4 +1,4 @@
-import type { EncounterDef, EncounterId } from '../model/types';
+import type { EncounterDef, EncounterId, EnemyDef, EnemyId } from '../model/types';
 
 /**
  * Expedition encounter beats.
@@ -12,6 +12,28 @@ import type { EncounterDef, EncounterId } from '../model/types';
  * — a third option that rewards preparation. Beats with a single sensible answer are the
  * ones that make an expedition feel like a slot machine, so there are none.
  */
+
+/**
+ * The combat opponents an encounter can put in front of a team.
+ *
+ * Short noun phrases rather than statted creatures: the threat itself comes from the
+ * encounter's `threatScale` and the site's danger band, and this is only what the outcome
+ * line calls them. `npm run validate` checks that every `combat.enemy` names one of these.
+ */
+export const ENEMIES: readonly EnemyDef[] = [
+  { id: 'ambush', name: 'the ambush' },
+  { id: 'dogs', name: 'a pack of dogs' },
+  { id: 'follower', name: 'the follower' },
+  { id: 'gate_crew', name: 'the gate crew' },
+  { id: 'hostile_group', name: 'a hostile group' },
+  { id: 'household', name: 'the household' },
+  { id: 'other_crew', name: 'the other crew' },
+  { id: 'pack', name: 'the pack' },
+];
+
+export const ENEMY_BY_ID: Readonly<Record<EnemyId, EnemyDef>> = Object.fromEntries(
+  ENEMIES.map((enemy) => [enemy.id, enemy]),
+);
 
 export const ENCOUNTERS: readonly EncounterDef[] = [
   /* ============================================================== TRAVEL */
@@ -177,7 +199,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
         outcome: {
           text: 'It is over in ninety seconds.',
           tone: 'neutral',
-          combat: { enemy: 'the pack', threatScale: 0.55 },
+          combat: { enemy: 'pack', threatScale: 0.55 },
         },
       },
       {
@@ -383,7 +405,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
         onFailure: {
           text: 'The tins go over. Whatever is upstairs comes down fast, and you leave the way you came.',
           tone: 'bad',
-          combat: { enemy: 'the household', threatScale: 0.8 },
+          combat: { enemy: 'household', threatScale: 0.8 },
           abort: true,
         },
       },
@@ -1280,7 +1302,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
         onFailure: {
           text: 'It goes wrong on the third sentence.',
           tone: 'bad',
-          combat: { enemy: 'the other crew', threatScale: 1.0 },
+          combat: { enemy: 'other_crew', threatScale: 1.0 },
         },
       },
       {
@@ -1290,7 +1312,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
         outcome: {
           text: 'You take the initiative.',
           tone: 'neutral',
-          combat: { enemy: 'the other crew', threatScale: 0.85 },
+          combat: { enemy: 'other_crew', threatScale: 0.85 },
           morale: -3,
         },
       },
@@ -1374,7 +1396,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
         outcome: {
           text: 'The only way out is the way they are standing.',
           tone: 'bad',
-          combat: { enemy: 'the ambush', threatScale: 1.15 },
+          combat: { enemy: 'ambush', threatScale: 1.15 },
         },
       },
       {
@@ -1723,7 +1745,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
         outcome: {
           text: 'You stop in the open and wait for them to close.',
           tone: 'neutral',
-          combat: { enemy: 'the follower', threatScale: 0.6 },
+          combat: { enemy: 'follower', threatScale: 0.6 },
         },
       },
       {
@@ -1927,7 +1949,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
         onFailure: {
           text: 'The lead dog commits at the culvert and the rest come with it.',
           tone: 'bad',
-          combat: { enemy: 'a pack of dogs', threatScale: 0.7 },
+          combat: { enemy: 'dogs', threatScale: 0.7 },
         },
       },
       {
@@ -2241,7 +2263,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
         onFailure: {
           text: 'The talker decides you are wasting his time, and the conversation ends the way these conversations end.',
           tone: 'bad',
-          combat: { enemy: 'the gate crew', threatScale: 1.1 },
+          combat: { enemy: 'gate_crew', threatScale: 1.1 },
         },
       },
       {
@@ -2251,7 +2273,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
         outcome: {
           text: 'Nobody moves for a long moment. Then the talker shrugs, and it becomes a fight.',
           tone: 'bad',
-          combat: { enemy: 'the gate crew', threatScale: 1.25 },
+          combat: { enemy: 'gate_crew', threatScale: 1.25 },
         },
       },
     ],
