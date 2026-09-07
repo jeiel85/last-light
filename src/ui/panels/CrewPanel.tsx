@@ -67,20 +67,33 @@ export function CrewPanel() {
 
   return (
     <div className="col gap-3">
-      <Guidance id="crew.assign" when={idle.length > 0} title="Nobody works by accident">
-        An unassigned survivor does nothing but eat — though idle and resting crew do supply the
-        labour that finishes construction. Put people where their skills are: the multiplier beside
-        each job shows exactly what that person will produce there, and why.
-      </Guidance>
-
       <Guidance
-        id="crew.rest"
-        when={living.some((s) => s.fatigue > 60)}
-        title="Rest is a job too"
-      >
-        Above about 50 fatigue people work badly and get hurt more. A day of rest is usually cheaper
-        than the injury that follows a week without one.
-      </Guidance>
+        notes={[
+          {
+            id: 'crew.assign',
+            when: idle.length > 0,
+            title: 'Nobody works by accident',
+            body: (
+              <>
+                An unassigned survivor does nothing but eat — though idle and resting crew do supply
+                the labour that finishes construction. Put people where their skills are: the
+                multiplier beside each job shows exactly what they will produce there, and why.
+              </>
+            ),
+          },
+          {
+            id: 'crew.rest',
+            when: living.some((s) => s.fatigue > 60),
+            title: 'Rest is a job too',
+            body: (
+              <>
+                Above about 50 fatigue people work badly and get hurt more often. A day of rest is
+                usually cheaper than the injury that follows a week without one.
+              </>
+            ),
+          },
+        ]}
+      />
 
       <Panel
         title="Crew"

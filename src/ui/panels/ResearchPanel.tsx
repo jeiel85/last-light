@@ -30,10 +30,22 @@ export function ResearchPanel() {
 
   return (
     <div className="col gap-3">
-      <Guidance id="research.start" when={!active} title="Insight only accrues while you are working">
-        Pick a project and the Laboratory starts generating insight toward it. Nothing accumulates
-        while the bench is empty, and switching projects banks half of what you had.
-      </Guidance>
+      <Guidance
+        notes={[
+          {
+            id: 'research.start',
+            when: !active,
+            title: 'Insight only accrues while you are working',
+            body: (
+              <>
+                Pick a project and the Laboratory starts generating insight toward it. Nothing
+                accumulates while the bench is empty, and switching projects banks half of what you
+                had against the one you left.
+              </>
+            ),
+          },
+        ]}
+      />
 
       <Panel
         title="Research"

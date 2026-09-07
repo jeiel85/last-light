@@ -1,8 +1,16 @@
 # LAST LIGHT
 
+**[▶ Play it in your browser](https://jeiel85.github.io/last-light/)**
+
+[![CI](https://github.com/jeiel85/last-light/actions/workflows/ci.yml/badge.svg)](https://github.com/jeiel85/last-light/actions/workflows/ci.yml)
+[![Pages](https://github.com/jeiel85/last-light/actions/workflows/pages.yml/badge.svg)](https://github.com/jeiel85/last-light/actions/workflows/pages.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A browser-based survival-management roguelite. You command a handful of survivors inside
 **Vault Meridian**, an abandoned civil-defence facility, in the months after the event they
 have started calling *the Quiet*.
+
+![The command deck on day nine](docs/screenshots/dashboard.png)
 
 Every day you decide who works, what gets built, what gets researched, and who goes up the
 stair. Every night the vault produces and consumes, people get hungry and tired, machines
@@ -34,6 +42,30 @@ wear out, and the world asks you a question you would rather not answer. A run l
   from radio fragments, documents, and theories that contradict each other.
 - **Legibility.** Every derived number opens into the terms that produced it. Risk is
   previewed before it is taken. Nobody dies without the odds having been on screen first.
+
+---
+
+## What it looks like
+
+Every pixel below is generated at run time — CSS, SVG, and procedural geometry. There are no
+image assets in the repository, and these shots are captured from a real build by
+`npm run screenshots`, so they cannot drift from the game.
+
+| | |
+|---|---|
+| ![Crew](docs/screenshots/crew.png) | ![Base](docs/screenshots/base.png) |
+| **Crew** — skills, traits, injuries, relationships, and a work multiplier you can open up | **Base** — a cross-section of three decks, with power priority and collapsed sections |
+| ![Map](docs/screenshots/map.png) | ![Research](docs/screenshots/research.png) |
+| **Map** — a radial region, three rings, danger and knowledge per site | **Research** — 38 nodes across seven branches, each unlocking something mechanical |
+
+<p align="center">
+  <img src="docs/screenshots/mobile-dashboard.png" alt="The dashboard on a phone" width="300">
+  <img src="docs/screenshots/mobile-crew.png" alt="The crew panel on a phone" width="300">
+</p>
+
+On a phone the interface is reorganised rather than shrunk: four destinations on a bottom tab
+bar with the rest behind **More**, the status rail collapsed into a strip that expands, and the
+log moved into a drawer.
 
 ---
 
@@ -88,6 +120,7 @@ npm run preview      # serve the production build
 | `npm run e2e:install` | Install the Playwright browser once |
 | `npm run verify` | lint + test + build, the gate before a release |
 | `npm run deploy:pages` | Build with the correct base path for GitHub Pages |
+| `npm run screenshots` | Recapture the README screenshots from a running build |
 
 ---
 

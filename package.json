@@ -20,7 +20,8 @@
     "e2e:ui": "playwright test --ui",
     "e2e:install": "playwright install --with-deps chromium",
     "verify": "npm run lint && npm run test && npm run build",
-    "deploy:pages": "tsx scripts/deploy-pages.ts"
+    "deploy:pages": "tsx scripts/deploy-pages.ts",
+    "screenshots": "tsx scripts/screenshots.ts"
   },
   "dependencies": {
     "immer": "^11.1.18",

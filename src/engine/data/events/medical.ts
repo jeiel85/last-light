@@ -223,6 +223,35 @@ export const MEDICAL_EVENTS: readonly EventDef[] = [
         resultText: 'Everything you have that dulls it, and somebody with them the whole time. It takes most of the night.',
         tone: 'bad',
       },
+      {
+        /*
+         * The way out when the cabinet is empty. Every other option here costs medicine, and
+         * an event modal cannot be dismissed, so without this a crew with none was trapped in
+         * a dialog with nothing to click. It is also the worst decision in the game, which is
+         * the correct thing to find at the bottom of an empty medicine cabinet.
+         */
+        id: 'dry',
+        label: 'There is nothing to give them. Do it anyway.',
+        hint: 'No medicine. Held down, and awake for it.',
+        check: { skill: 'medicine', target: 8, actor: 'best' },
+        onSuccess: [
+          { kind: 'cure', target: 'weakest' },
+          { kind: 'need', target: 'weakest', need: 'health', amount: -34 },
+          { kind: 'trait', target: 'weakest', traitId: 'frail' },
+          { kind: 'need', target: 'all', need: 'morale', amount: -10 },
+          { kind: 'resource', resource: 'hope', amount: -12 },
+        ],
+        onFailure: [
+          { kind: 'kill', target: 'weakest', cause: 'died on the table' },
+          { kind: 'need', target: 'all', need: 'morale', amount: -14 },
+          { kind: 'resource', resource: 'hope', amount: -18 },
+        ],
+        successText:
+          'It works. Four people hold and one cuts, and the sound of it goes through the whole vault and does not leave anybody who heard it.',
+        failureText:
+          'It does not work, and it takes a long time not to work. Nobody speaks at the table for two days.',
+        tone: 'bad',
+      },
     ],
   },
   {

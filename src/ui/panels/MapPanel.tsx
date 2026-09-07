@@ -65,10 +65,22 @@ export function MapPanel() {
 
   return (
     <div className="col gap-3">
-      <Guidance id="map.expedition" when={maxRing >= 1} title="The surface is where the materials are">
-        Almost nothing is manufactured down here. Pick a site, pick a team, and read the forecast
-        before you commit — it states the injury and death risk, and names what is wrong with the plan.
-      </Guidance>
+      <Guidance
+        notes={[
+          {
+            id: 'map.expedition',
+            when: maxRing >= 1,
+            title: 'The surface is where the materials are',
+            body: (
+              <>
+                Almost nothing is manufactured down here. Pick a site, pick a team, and read the
+                forecast before you commit — it states the injury and death risk, and names what is
+                wrong with the plan.
+              </>
+            ),
+          },
+        ]}
+      />
 
       <Panel
         title="The surface"

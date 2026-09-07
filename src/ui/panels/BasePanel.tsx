@@ -54,15 +54,32 @@ export function BasePanel() {
 
   return (
     <div className="col gap-3">
-      <Guidance id="base.build" title="Pick a slot, then a facility">
-        Every facility needs a slot on a deck that permits it. Building charges the materials at
-        once and then takes days of labour from whoever is not otherwise busy.
-      </Guidance>
-
-      <Guidance id="base.power" when={power.deficit > 0} title="The lights are going out somewhere">
-        Demand is above supply, so the lowest-priority facilities are being browned out. Raise the
-        reactor, lower your draw, or decide what you are willing to lose using the priorities below.
-      </Guidance>
+      <Guidance
+        notes={[
+          {
+            id: 'base.power',
+            when: power.deficit > 0,
+            title: 'The lights are going out somewhere',
+            body: (
+              <>
+                Draw is above supply, so the lowest-priority facilities are being browned out. Raise
+                the reactor, lower the draw, or decide what you are willing to lose using the
+                priorities below.
+              </>
+            ),
+          },
+          {
+            id: 'base.build',
+            title: 'Pick a slot, then a facility',
+            body: (
+              <>
+                Every facility needs a slot on a deck that permits it. Building charges the materials
+                at once and then takes days of labour from whoever is not otherwise busy.
+              </>
+            ),
+          },
+        ]}
+      />
 
       <Panel
         title="Vault Meridian"

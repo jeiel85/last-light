@@ -132,34 +132,55 @@ export function Dashboard() {
 
   return (
     <div className="grid-2">
-      <Guidance id="intro.day" title="One decision at a time">
-        Assign your crew, spend what you can afford, then press <strong>End day</strong>. Everything
-        else — production, hunger, wear, and whatever the world sends — resolves overnight.
-      </Guidance>
-
-      <Guidance id="intro.inspect" when={Boolean(report)} title="Every number opens up">
-        The <em>in</em> and <em>out</em> chips beside each store show exactly which facilities and
-        people produced that figure. Nothing in this game is a mystery number.
-      </Guidance>
-
       <Guidance
-        id="intro.horizon"
-        when={state.day >= BALANCE.endings.attritionFromDay}
-        title="The winter is breaking"
-      >
-        Around day {BALANCE.endings.horizonDay} the thaw comes and the run resolves however it stands.
-        Until then everything wears faster — this is the stretch where a vault that has been
-        coasting starts to come apart.
-      </Guidance>
-
-      <Guidance
-        id="intro.shortage"
-        when={alerts.some((a) => a.id.startsWith('low-') || a.id.startsWith('out-'))}
-        title="Something is running out"
-      >
-        A store that is being spent faster than it is replaced has a deadline on it. The gauge
-        counts the days left at the current rate; the breakdown behind it names what to change.
-      </Guidance>
+        notes={[
+          {
+            id: 'intro.day',
+            title: 'One decision at a time',
+            body: (
+              <>
+                Assign your crew, spend what you can afford, then press <strong>End day</strong>.
+                Everything else — production, hunger, wear, and whatever the world sends — resolves
+                overnight.
+              </>
+            ),
+          },
+          {
+            id: 'intro.shortage',
+            when: alerts.some((a) => a.id.startsWith('low-') || a.id.startsWith('out-')),
+            title: 'Something is running out',
+            body: (
+              <>
+                A store being spent faster than it is replaced has a deadline on it. The gauge counts
+                the days left at the current rate; the breakdown behind it names what to change.
+              </>
+            ),
+          },
+          {
+            id: 'intro.inspect',
+            when: Boolean(report),
+            title: 'Every number opens up',
+            body: (
+              <>
+                The <em>in</em> and <em>out</em> chips beside each store show exactly which facilities
+                and people produced that figure. Nothing here is a mystery number.
+              </>
+            ),
+          },
+          {
+            id: 'intro.horizon',
+            when: state.day >= BALANCE.endings.attritionFromDay,
+            title: 'The winter is breaking',
+            body: (
+              <>
+                Around day {BALANCE.endings.horizonDay} the thaw comes and the run resolves however it
+                stands. Until then everything wears faster — this is the stretch where a vault that has
+                been coasting starts to come apart.
+              </>
+            ),
+          },
+        ]}
+      />
 
       <Panel title="Situation" note={`Day ${state.day}`}>
         <div className="stat-row">

@@ -106,9 +106,9 @@ Status key: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## M10 — Release
 - [x] README with screenshots
-- [ ] Landing page + live demo
-- [ ] GitHub repository, topics, description
-- [ ] GitHub Pages deployment
+- [x] Landing page + live demo
+- [x] GitHub repository, topics, description
+- [x] GitHub Pages deployment
 
 ## M11 — Independent QA & polish loop (post-v1.0 review)
 - [x] Play multiple full runs through Playwright

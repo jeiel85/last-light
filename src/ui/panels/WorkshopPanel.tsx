@@ -59,10 +59,20 @@ export function WorkshopPanel() {
 
   return (
     <div className="col gap-3">
-      <Guidance id="workshop.craft" title="The bench needs somebody standing at it">
-        Queueing a recipe charges the materials immediately; progress then depends entirely on who
-        is assigned to the facility that makes it. An unstaffed workshop builds nothing.
-      </Guidance>
+      <Guidance
+        notes={[
+          {
+            id: 'workshop.craft',
+            title: 'The bench needs somebody standing at it',
+            body: (
+              <>
+                Queueing a recipe charges the materials immediately; progress then depends entirely on
+                who is assigned to the facility that makes it. An unstaffed workshop builds nothing.
+              </>
+            ),
+          },
+        ]}
+      />
 
       <Panel title="Workshop" note={`${state.craftQueue.length} queued`}>
         {state.craftQueue.length === 0 && <EmptyState>Nothing on the bench.</EmptyState>}
