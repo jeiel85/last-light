@@ -265,3 +265,71 @@ test.describe('accessibility', () => {
     await expect(gauge.locator('[role="img"]')).toHaveAttribute('aria-label', /%/);
   });
 });
+
+/**
+ * The interface has to survive a second language.
+ *
+ * Korean sets differently from English — no spaces to break at inside a clause, taller line
+ * boxes, and labels that are frequently shorter but occasionally much longer. A layout that
+ * fits in English is not evidence that it fits at all, so the tightest viewport is driven
+ * through a real run with the language switched, and the same overflow and clipping rules
+ * are applied.
+ */
+test.describe('a second language', () => {
+  test.use({ viewport: { width: 360, height: 640 } });
+
+  /** Switch the language through the real control, exactly as a player would. */
+  async function switchToKorean(page: Page): Promise<void> {
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    await page.getByLabel('Language').selectOption('ko');
+    await expect(page.getByRole('heading', { name: '설정' })).toBeVisible();
+    await page.getByRole('button', { name: '닫기' }).click();
+  }
+
+  test('every panel fits in Korean at the narrowest viewport', async ({ page }) => {
+    const console_ = watchConsole(page);
+    await openFresh(page);
+    await switchToKorean(page);
+
+    await expect(page.getByRole('button', { name: '새 회차' })).toBeVisible();
+    await assertNoHorizontalOverflow(page, 'ko menu');
+    await assertNothingClipped(page, 'ko menu');
+
+    await page.getByRole('button', { name: '새 회차' }).click();
+    await expect(page.getByRole('heading', { name: '회차 준비' })).toBeVisible();
+    await assertNoHorizontalOverflow(page, 'ko setup');
+    await assertNothingClipped(page, 'ko setup');
+
+    await page.getByLabel('회차 시드').fill('KO-LAYOUT');
+    await page.getByRole('button', { name: '문을 봉인한다' }).click();
+    await expect(page.getByRole('button', { name: '하루 종료' })).toBeVisible();
+
+    for (const panel of ['상황판', '대원', '시설', '작업장', '연구', '지도', '기록실']) {
+      const tab = page.getByRole('button', { name: panel, exact: true }).first();
+      if (await tab.isVisible()) await tab.click();
+      else {
+        /*
+         * The sheet button is addressed by its aria-expanded rather than its label: once a
+         * secondary panel is open the button takes that panel's name, so matching on
+         * "더보기" only works for the first one.
+         */
+        await page.locator('.tabbar-btn[aria-expanded]').click();
+        await page.getByRole('button', { name: panel, exact: true }).click();
+      }
+      await page.waitForTimeout(60);
+      await assertNoHorizontalOverflow(page, `ko ${panel}`);
+      await assertNothingClipped(page, `ko ${panel}`);
+      await assertTextIsLegible(page, `ko ${panel}`);
+    }
+    console_.assertClean();
+  });
+
+  test('the language survives a reload, because it lives in the save', async ({ page }) => {
+    await openFresh(page);
+    await switchToKorean(page);
+    await page.reload();
+    await expect(page.getByRole('button', { name: '새 회차' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.lang)).toBe('ko');
+  });
+});

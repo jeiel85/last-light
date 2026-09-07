@@ -20,6 +20,7 @@ wear out, and the world asks you a question you would rather not answer. A run l
 - **Genre**: survival management · roguelite · narrative strategy
 - **Session**: 30–90 minutes per run, save and resume at any point
 - **Platform**: web — desktop, tablet, and phone; installable as a PWA; fully offline
+- **Languages**: English and 한국어, switchable in Settings; new languages are a data file
 - **Local-first**: no accounts, no servers, no analytics, no telemetry
 
 ---
@@ -251,6 +252,36 @@ intersect the tags on the encounter beats you want it to draw.
 
 Run `npm run validate` after any of these. Broken references fail the build.
 
+### A translation of any of it — `src/i18n/locales/<id>/`
+
+English is written in the data files above and is the source of truth. A locale is an
+overlay of overrides, and every lookup falls back to English, so a half-finished
+translation is a usable one rather than a screen full of missing keys.
+
+```bash
+npm run locales                      # what each language has, and what is stale
+npm run locales -- --missing         # the keys still to fill in
+npm run locales:extract -- items     # the English source for one table, as JSON
+```
+
+To add a language:
+
+1. Add its id to `LocaleId` and `LOCALES` in `src/i18n/types.ts` — the name in its own
+   language, the English name, and a BCP 47 tag.
+2. Copy `src/i18n/locales/ko/` and translate. `messages.ts` is the interface and the prose
+   the engine writes; `content/*.ts` are overrides keyed `<table>.<id>.<field>`, which is
+   what `npm run locales:extract` prints.
+3. Register the bundle in `BUNDLES` in `src/i18n/index.ts`.
+
+Nothing else changes. The language selector reads `LOCALES`, the setting is stored in the
+save, and the engine reads the same module the interface does — so log lines, day-report
+notes, and combat outcomes are translated along with the buttons.
+
+A locale may also supply `postProcess`, a pass over the finished string for grammar a
+lookup table cannot express. Korean uses it to pick subject and object particles from the
+syllable a placeholder actually produced: the translation writes `{name}이/가` and the
+resolver chooses.
+
 ---
 
 ## Quality gates
@@ -258,10 +289,10 @@ Run `npm run validate` after any of these. Broken references fail the build.
 Everything below passes on the current tree:
 
 - `npm run build` — clean, zero TypeScript errors under `strict`
-- `npm test` — 301 tests across 15 files
-- `npm run e2e` — 144 tests across desktop, tablet, and mobile, zero console errors
+- `npm test` — 366 tests across 21 files
+- `npm run e2e` — 150 tests across desktop, tablet, and mobile, zero console errors
 - `npm run lint` — zero errors
-- `npm run validate` — every reference in every data table resolves
+- `npm run validate` — every data reference resolves, and no translation key is stale
 - `npm run simulate` — 200 runs, no errors, no resource runaway
 
 ---
