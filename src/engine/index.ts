@@ -66,6 +66,7 @@ export { advanceDay, crewSummary, closestBond, type AdvanceResult } from './syst
 export {
   selectEvents,
   presentEvent,
+  dropUnknownEvents,
   resolveEvent,
   estimateSuccess,
   eventsPerDay,

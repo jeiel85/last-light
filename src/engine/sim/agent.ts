@@ -56,8 +56,10 @@ const BUILD_ORDERS: Record<AgentConfig['strategy'], string[]> = {
     'storage', 'infirmary', 'surface_access', 'radio_room', 'security',
   ],
   industry: [
-    'water_reclaimer', 'galley', 'hydroponics', 'workshop', 'bunks', 'storage',
-    'laboratory', 'surface_access', 'infirmary', 'machine_shop',
+    // The laboratory sits high on purpose: every facility past the basics is gated behind
+    // tier-2 research, so an industry run that defers it never reaches its own build.
+    'water_reclaimer', 'galley', 'hydroponics', 'workshop', 'laboratory', 'machine_shop',
+    'bunks', 'storage', 'surface_access', 'infirmary',
   ],
   science: [
     'water_reclaimer', 'galley', 'hydroponics', 'workshop', 'laboratory', 'deep_archive',

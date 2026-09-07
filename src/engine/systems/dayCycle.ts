@@ -38,7 +38,7 @@ import {
   removeCondition,
 } from './survivors';
 import { deliverExpedition, killSurvivor } from './expedition';
-import { selectEvents, tickEventCooldowns } from './events/select';
+import { dropUnknownEvents, selectEvents, tickEventCooldowns } from './events/select';
 import { regenerateWorld } from './world';
 import { detectEnding, buildEndingResult, updateEndingProgress } from './endings';
 import * as T from './traits';
@@ -168,6 +168,9 @@ export function advanceDay(state: GameState): AdvanceResult {
   /* 11 — events queued for the player */
   const selection = selectEvents(state, rng);
   state.events.pending = selection.pending;
+  // A save written by a build that had events this one does not would otherwise queue ids
+  // that can never be presented, and the player would be stuck on a day that never ends.
+  dropUnknownEvents(state);
 
   /* 12 — ending progress and detection */
   const powerSurplus = power.capacity.total - power.demand.total;

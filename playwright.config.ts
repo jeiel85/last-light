@@ -31,9 +31,16 @@ export default defineConfig({
   ],
 
   webServer: {
-    // A distinctive port, never reused: sharing one with whatever else is running on the
-    // machine is how a suite ends up testing somebody else's application.
-    command: 'npm run build && npm run preview -- --port 4319 --strictPort',
+    /*
+     * A distinctive port, never reused: sharing one with whatever else is running on the
+     * machine is how a suite ends up testing somebody else's application.
+     *
+     * The build goes to its own directory too. Sharing `dist` with local development meant a
+     * test run could overwrite a build somebody was serving, and produce 404s for assets that
+     * were on disk a second earlier — an hour of confusion the first time it happens.
+     */
+    command:
+      'npm run build -- --outDir dist-e2e --emptyOutDir && npm run preview -- --outDir dist-e2e --port 4319 --strictPort',
     url: 'http://localhost:4319',
     reuseExistingServer: false,
     timeout: 180_000,

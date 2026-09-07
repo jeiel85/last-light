@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ARCHETYPE_BY_ID, Expedition } from '@engine';
+import { ARCHETYPE_BY_ID, Expedition, RESOURCES } from '@engine';
+import type { ResourceId } from '@engine';
 import { useGameStore } from '@store/gameStore';
 import { Modal } from '@ui/components/Modal';
 import { Button } from '@ui/components/Button';
@@ -16,17 +17,12 @@ import { announce } from '@ui/hooks/announce';
 export function ExpeditionModal() {
   const state = useGameStore((s) => s.state)!;
   const resolveBeat = useGameStore((s) => s.resolveBeat);
+  const closeExpedition = useGameStore((s) => s.closeExpedition);
   const notify = useGameStore((s) => s.notify);
   const [showLog, setShowLog] = useState(false);
 
   const expedition = state.expeditions.find((e) => e.id === state.activeExpeditionId);
-  const beat = useMemo(() => {
-    try {
-      return Expedition.currentBeat(state);
-    } catch {
-      return null;
-    }
-  }, [state]);
+  const beat = useMemo(() => Expedition.currentBeat(state), [state]);
 
   if (!expedition) return null;
 
@@ -62,25 +58,41 @@ export function ExpeditionModal() {
     </div>
   );
 
+  /*
+   * The team has finished but the phase has not caught up yet — normally a single frame.
+   * It gets an explicit way forward regardless: a modal with no footer and no close button
+   * is a screen the player cannot leave, and "unreachable in normal play" is not a good
+   * enough reason to ship one.
+   */
   if (!beat) {
+    const haul = Object.entries(expedition.haulResources).filter(([, amount]) => (amount ?? 0) > 0);
     return (
-      <Modal title="The team is coming back" dismissible={false} size="normal">
+      <Modal
+        title="The team is coming back"
+        onClose={closeExpedition}
+        size="normal"
+        footer={
+          <Button tone="primary" onClick={closeExpedition} data-autofocus>
+            Carry on
+          </Button>
+        }
+      >
         {header}
         <p className="prose">
           {expedition.aborted
             ? 'They turned around early. Whatever they had already gathered comes home with them.'
             : 'The site is done. They start the walk back with what they could carry.'}
         </p>
-        <ul className="haul-list">
-          {Object.entries(expedition.haulResources)
-            .filter(([, amount]) => (amount ?? 0) > 0)
-            .map(([id, amount]) => (
+        {haul.length > 0 && (
+          <ul className="haul-list">
+            {haul.map(([id, amount]) => (
               <li key={id}>
-                <span>{id}</span>
+                <span>{RESOURCES[id as ResourceId]?.name ?? id}</span>
                 <span className="num">+{Math.round(amount ?? 0)}</span>
               </li>
             ))}
-        </ul>
+          </ul>
+        )}
       </Modal>
     );
   }

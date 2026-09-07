@@ -159,12 +159,20 @@ export function detectEnding(state: GameState): string | null {
     return 'signal';
   }
 
-  // Exodus: the convoy is built and fuelled.
+  /*
+   * Exodus: the convoy is built and fuelled.
+   *
+   * This used to want level 3 of both facilities. Cumulatively that is 328 components, 80
+   * fuel and 450 days of labour before the convoy's own 60 fuel and 45 components — beyond
+   * what the run horizon affords, and the simulator never saw it once in hundreds of runs.
+   * Level 2 keeps it the most industrially demanding ending in the game without making it
+   * arithmetic nobody can reach.
+   */
   if (
     living.length > 0 &&
     Boolean(state.flags['convoy.started']) &&
-    operationalLevel(state, 'machine_shop') >= 3 &&
-    operationalLevel(state, 'surface_access') >= 3 &&
+    operationalLevel(state, 'machine_shop') >= 2 &&
+    operationalLevel(state, 'surface_access') >= 2 &&
     state.resources.fuel >= BALANCE.endings.convoyFuel &&
     state.resources.components >= BALANCE.endings.convoyComponents
   ) {

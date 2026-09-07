@@ -84,6 +84,7 @@ interface GameStoreState {
   /* expedition */
   dispatch: (locationId: string, members: SurvivorId[], loadout: ExpeditionLoadout) => ActionResult;
   resolveBeat: (choiceId: string) => ActionResult;
+  closeExpedition: () => void;
   scout: (locationId: string) => ActionResult;
 
   /* time */
@@ -350,6 +351,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const state = get().state;
     if (state) void autosave(state);
     return { ok: result.ok, ...(result.reason ? { message: result.reason } : {}) };
+  },
+
+  closeExpedition() {
+    mutate(get, set, (draft) => {
+      Expedition.dismissExpeditionView(draft);
+    });
+    const state = get().state;
+    if (state) void autosave(state);
   },
 
   scout(locationId) {

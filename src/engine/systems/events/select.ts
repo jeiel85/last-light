@@ -186,14 +186,18 @@ export interface EventPresentation {
   remaining: number;
 }
 
+/**
+ * Describe the event at the head of the queue.
+ *
+ * Pure: the UI calls this during render, against a frozen Immer draft, so it must not touch
+ * the state. An id that no longer resolves — a save from a build that had an event this one
+ * does not — is skipped over here and dropped from the queue by `dropUnknownEvents`, which
+ * the day pipeline and `resolveEvent` both run.
+ */
 export function presentEvent(state: GameState): EventPresentation | null {
-  const pending = state.events.pending[0];
+  const pending = state.events.pending.find((entry) => EVENT_BY_ID[entry.eventId]);
   if (!pending) return null;
-  const event = EVENT_BY_ID[pending.eventId];
-  if (!event) {
-    state.events.pending.shift();
-    return presentEvent(state);
-  }
+  const event = EVENT_BY_ID[pending.eventId]!;
   const actor = pending.actorId
     ? state.survivors.find((s) => s.id === pending.actorId && s.alive)
     : undefined;
@@ -224,8 +228,18 @@ export function presentEvent(state: GameState): EventPresentation | null {
     event,
     ...(actor ? { actor } : {}),
     choices,
-    remaining: state.events.pending.length,
+    remaining: state.events.pending.filter((entry) => EVENT_BY_ID[entry.eventId]).length,
   };
+}
+
+/**
+ * Drop queued events this build no longer defines. Called by the writers rather than by the
+ * reader, so presentation stays pure.
+ */
+export function dropUnknownEvents(state: GameState): number {
+  const before = state.events.pending.length;
+  state.events.pending = state.events.pending.filter((entry) => Boolean(EVENT_BY_ID[entry.eventId]));
+  return before - state.events.pending.length;
 }
 
 function resolveCheckActor(
@@ -272,6 +286,10 @@ export function resolveEvent(
   rng: Rng,
   unlocks: readonly string[] = [],
 ): EventResolution {
+  // Resolution is a write, so this is where the queue gets tidied: after this the head of
+  // the queue is the event `presentEvent` described, and `shift` below removes the right one.
+  dropUnknownEvents(state);
+
   const presentation = presentEvent(state);
   if (!presentation) return { ok: false, reason: 'No event pending', resultText: '', notes: [], hasMore: false };
 

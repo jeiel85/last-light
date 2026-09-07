@@ -970,6 +970,25 @@ export interface GameState {
     pending: PendingEvent[];
     seenCounts: Record<EventId, number>;
   };
+  /**
+   * The run's flag bag: narrative state and mechanical counters in one place, because both
+   * need to be readable by the event condition DSL and both belong in the save.
+   *
+   * Two namespaces share it, separated by naming rather than by structure:
+   *
+   * - `prefix:rest` — written by the simulation. `mod:` difficulty and scenario modifiers,
+   *   `banned:` scenario facility locks, `shortfall:` consecutive days a store has been
+   *   empty, `power:`, `labour:`, `clearing:`, `research:`, `encounter:`, `order:`,
+   *   `passive:`, `critical:`, `deeproot:`.
+   * - `subject.detail` — written by content. `meridian.suspicious`, `listeners.heard`,
+   *   `run.someone_died`, and so on.
+   *
+   * Content may write into exactly two system prefixes, and both are deliberate hand-offs:
+   * `unlock:<facilityId>` lets an event open a research-gated facility, and
+   * `ending:available:<endingId>` lets an event put an ending within reach. A test enforces
+   * that nothing else crosses the line, because a mechanical counter quietly colliding with
+   * a story flag is the kind of bug that only shows up thirty days into somebody's run.
+   */
   flags: Record<string, number | boolean | string>;
   lore: LoreId[];
   stats: RunStats;

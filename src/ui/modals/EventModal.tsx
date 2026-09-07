@@ -21,13 +21,8 @@ export function EventModal() {
   const notify = useGameStore((s) => s.notify);
   const [outcome, setOutcome] = useState<EventResolution | null>(null);
 
-  const presentation = useMemo(() => {
-    try {
-      return presentEvent(state);
-    } catch {
-      return null;
-    }
-  }, [state]);
+  // `presentEvent` is pure, so it is safe to call during render against a frozen draft.
+  const presentation = useMemo(() => presentEvent(state), [state]);
 
   if (!presentation) return null;
   const { event, actor, choices, remaining } = presentation;

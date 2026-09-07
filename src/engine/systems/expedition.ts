@@ -894,6 +894,22 @@ export function deliverExpedition(state: GameState, expedition: ActiveExpedition
   return notes;
 }
 
+/**
+ * Leave the expedition view.
+ *
+ * `finishExpedition` already returns the phase to planning, so this is a recovery path
+ * rather than the normal one: it exists so the expedition modal always has a way out, even
+ * if the phase and the beat queue ever disagree.
+ */
+export function dismissExpeditionView(state: GameState): void {
+  const expedition = state.expeditions.find((e) => e.id === state.activeExpeditionId);
+  if (expedition && !expedition.resolved && expedition.queue.length > 0) return;
+  state.activeExpeditionId = null;
+  if (state.phase === 'expedition') {
+    state.phase = state.events.pending.length > 0 ? 'events' : 'planning';
+  }
+}
+
 export function activeExpedition(state: GameState): ActiveExpedition | undefined {
   return state.expeditions.find((e) => e.id === state.activeExpeditionId);
 }
