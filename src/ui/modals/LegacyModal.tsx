@@ -3,20 +3,16 @@ import { ENDINGS, Meta } from '@engine';
 import { useGameStore } from '@store/gameStore';
 import { Modal } from '@ui/components/Modal';
 import { Button } from '@ui/components/Button';
-
-const CATEGORY_LABEL: Record<string, string> = {
-  scenario: 'Scenarios',
-  trait: 'Traits',
-  kit: 'Starting kits',
-  modifier: 'Modifiers',
-  archive: 'Archive',
-};
+import { useT } from '@ui/hooks/useTranslation';
+import type { MessageKey } from '@i18n';
+import { endingName, endingSummary, unlockDescription, unlockName } from '@i18n/content';
 
 /** Between-run progression: what Legacy has bought, and what it could buy next. */
 export function LegacyModal({ onClose }: { onClose: () => void }) {
   const profile = useGameStore((s) => s.profile);
   const setProfile = useGameStore((s) => s.setProfile);
   const notify = useGameStore((s) => s.notify);
+  const t = useT();
 
   const rows = useMemo(() => Meta.unlockAvailability(profile), [profile]);
   const grouped = useMemo(() => {
@@ -31,20 +27,26 @@ export function LegacyModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal
-      title="Legacy"
-      subtitle={`${profile.legacy} unspent · ${profile.legacySpent} spent · ${Meta.remainingLegacyCost(profile)} still to buy`}
+      title={t('legacy.title')}
+      subtitle={t('legacy.subtitle', {
+        unspent: profile.legacy,
+        spent: profile.legacySpent,
+        remaining: Meta.remainingLegacyCost(profile),
+      })}
       onClose={onClose}
       size="wide"
     >
       <section className="col gap-2">
-        <h3 className="label">Endings seen</h3>
+        <h3 className="label">{t('legacy.endingsSeen')}</h3>
         <ul className="ending-row">
           {ENDINGS.map((ending) => {
             const seen = profile.endingsSeen.includes(ending.id);
             return (
               <li key={ending.id} className={`ending-chip ${seen ? '' : 'ending-chip-off'}`} style={{ borderColor: seen ? ending.colour : undefined }}>
-                <strong>{seen ? ending.name : '???'}</strong>
-                <span className="tone-muted">{seen ? ending.summary : 'Not yet reached'}</span>
+                <strong>{seen ? endingName(ending) : '???'}</strong>
+                <span className="tone-muted">
+                  {seen ? endingSummary(ending) : t('legacy.notYet')}
+                </span>
               </li>
             );
           })}
@@ -53,13 +55,13 @@ export function LegacyModal({ onClose }: { onClose: () => void }) {
 
       {grouped.map(([category, list]) => (
         <section key={category} className="col gap-2">
-          <h3 className="label">{CATEGORY_LABEL[category] ?? category}</h3>
+          <h3 className="label">{t(`legacy.category.${category}` as MessageKey)}</h3>
           <ul className="unlock-list">
             {list.map(({ unlock, owned, affordable, locked, lockedReason }) => (
               <li key={unlock.id} className={`unlock-row ${owned ? 'unlock-owned' : ''}`}>
                 <span className="col grow">
-                  <strong>{unlock.name}</strong>
-                  <span className="tone-muted">{unlock.description}</span>
+                  <strong>{unlockName(unlock)}</strong>
+                  <span className="tone-muted">{unlockDescription(unlock)}</span>
                   {locked && <span className="tone-warn">{lockedReason}</span>}
                 </span>
                 <span className="num unlock-cost">{unlock.cost}</span>
@@ -69,14 +71,20 @@ export function LegacyModal({ onClose }: { onClose: () => void }) {
                   onClick={() => {
                     const result = Meta.purchaseUnlock(profile, unlock.id);
                     if (!result.ok) {
-                      notify(result.reason ?? 'Cannot buy that.', 'bad');
+                      notify(result.reason ?? t('legacy.cannotBuy'), 'bad');
                       return;
                     }
                     setProfile(result.profile);
-                    notify(`${unlock.name} unlocked.`, 'good');
+                    notify(t('legacy.unlocked', { name: unlockName(unlock) }), 'good');
                   }}
                 >
-                  {owned ? 'Owned' : affordable ? 'Unlock' : locked ? 'Locked' : 'Too dear'}
+                  {owned
+                    ? t('legacy.owned')
+                    : affordable
+                      ? t('legacy.unlock')
+                      : locked
+                        ? t('legacy.locked')
+                        : t('legacy.tooDear')}
                 </Button>
               </li>
             ))}

@@ -9,22 +9,25 @@ import { Tabs } from '@ui/components/Tabs';
 import { BreakdownPopover } from '@ui/components/BreakdownPopover';
 import { Guidance } from '@ui/components/Guidance';
 import { Icon } from '@ui/components/Icon';
+import { useT } from '@ui/hooks/useTranslation';
+import { t } from '@i18n';
+import { itemDescription, itemName, resourceName } from '@i18n/content';
 
-const CATEGORIES: { id: ItemCategory | 'all'; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'weapon', label: 'Weapons' },
-  { id: 'tool', label: 'Tools' },
-  { id: 'protection', label: 'Protection' },
-  { id: 'medical', label: 'Medical' },
-  { id: 'exploration', label: 'Exploration' },
-  { id: 'utility', label: 'Utility' },
-];
+const CATEGORIES = [
+  'all',
+  'weapon',
+  'tool',
+  'protection',
+  'medical',
+  'exploration',
+  'utility',
+] as const satisfies readonly (ItemCategory | 'all')[];
 
 function costText(cost: Partial<Record<ResourceId, number>>): string {
   const parts = RESOURCE_LIST.filter((r) => (cost[r.id] ?? 0) > 0).map(
-    (r) => `${Math.ceil(cost[r.id] ?? 0)} ${r.name.toLowerCase()}`,
+    (r) => `${Math.ceil(cost[r.id] ?? 0)} ${resourceName(r).toLowerCase()}`,
   );
-  return parts.length ? parts.join(', ') : 'nothing';
+  return parts.length ? parts.join(', ') : t('base.costNothing');
 }
 
 /** Crafting queue, recipe book, and the pack — everything the vault physically owns. */
@@ -37,12 +40,13 @@ export function WorkshopPanel() {
   const notify = useGameStore((s) => s.notify);
   const [category, setCategory] = useState<ItemCategory | 'all'>('all');
   const [hideLocked, setHideLocked] = useState(true);
+  const t = useT();
 
   const recipes = useMemo(() => {
     const all = Crafting.availableRecipes(state);
     return all
       .filter((entry) => category === 'all' || entry.recipe.category === category)
-      .filter((entry) => !hideLocked || entry.ok || entry.reason !== 'Requires research');
+      .filter((entry) => !hideLocked || entry.ok || !entry.researchLocked);
   }, [state, category, hideLocked]);
 
   const inventory = useMemo(
@@ -53,7 +57,7 @@ export function WorkshopPanel() {
           Boolean(row.def),
         )
         .filter((row) => category === 'all' || row.def.category === category)
-        .sort((a, b) => a.def.name.localeCompare(b.def.name)),
+        .sort((a, b) => itemName(a.def).localeCompare(itemName(b.def))),
     [state.inventory, category],
   );
 
@@ -63,19 +67,14 @@ export function WorkshopPanel() {
         notes={[
           {
             id: 'workshop.craft',
-            title: 'The bench needs somebody standing at it',
-            body: (
-              <>
-                Queueing a recipe charges the materials immediately; progress then depends entirely on
-                who is assigned to the facility that makes it. An unstaffed workshop builds nothing.
-              </>
-            ),
+            title: t('guidance.craft.title'),
+            body: t('guidance.craft.body'),
           },
         ]}
       />
 
-      <Panel title="Workshop" note={`${state.craftQueue.length} queued`}>
-        {state.craftQueue.length === 0 && <EmptyState>Nothing on the bench.</EmptyState>}
+      <Panel title={t('workshop.title')} note={t('workshop.queued', { count: state.craftQueue.length })}>
+        {state.craftQueue.length === 0 && <EmptyState>{t('workshop.benchEmpty')}</EmptyState>}
         <ul className="queue-list">
           {state.craftQueue.map((job) => {
             const recipe = RECIPE_BY_ID[job.recipeId];
@@ -85,18 +84,26 @@ export function WorkshopPanel() {
               <li key={job.id} className="queue-row">
                 <span className="col grow">
                   <span>
-                    {item?.name ?? job.recipeId}
+                    {item ? itemName(item) : job.recipeId}
                     {recipe && recipe.yield > 1 && <span className="tone-muted"> ×{recipe.yield}</span>}
                   </span>
                   <Bar value={Crafting.craftProgressPercent(job) / 100} colour="var(--amber)" />
                 </span>
                 {rate && (
-                  <BreakdownPopover breakdown={rate} title="Craft rate">
-                    <span className="num">{Math.round(rate.total)}/day</span>
+                  <BreakdownPopover breakdown={rate} title={t('workshop.craftRate')}>
+                    <span className="num">
+                      {t('workshop.perDay', { value: Math.round(rate.total) })}
+                    </span>
                   </BreakdownPopover>
                 )}
-                <Button size="sm" tone="ghost" onClick={() => notify(cancelCraft(job.id).message ?? 'Cancelled.', 'info')}>
-                  Cancel
+                <Button
+                  size="sm"
+                  tone="ghost"
+                  onClick={() =>
+                    notify(cancelCraft(job.id).message ?? t('workshop.cancelled'), 'info')
+                  }
+                >
+                  {t('workshop.cancel')}
                 </Button>
               </li>
             );
@@ -105,22 +112,22 @@ export function WorkshopPanel() {
       </Panel>
 
       <Panel
-        title="Recipes"
+        title={t('workshop.recipes')}
         note={`${recipes.length}`}
         actions={
           <label className="check check-inline">
             <input type="checkbox" checked={hideLocked} onChange={(e) => setHideLocked(e.target.checked)} />
-            <span>Hide un-researched</span>
+            <span>{t('workshop.hideLocked')}</span>
           </label>
         }
       >
         <Tabs
-          tabs={CATEGORIES.map((c) => ({ id: c.id, label: c.label }))}
+          tabs={CATEGORIES.map((c) => ({ id: c, label: t(`workshop.category.${c}`) }))}
           active={category}
           onChange={setCategory}
-          ariaLabel="Recipe category"
+          ariaLabel={t('workshop.categoryLabel')}
         />
-        {recipes.length === 0 && <EmptyState>Nothing here yet.</EmptyState>}
+        {recipes.length === 0 && <EmptyState>{t('workshop.nothingHere')}</EmptyState>}
         <ul className="recipe-list">
           {recipes.map(({ recipe, ok, reason, estimatedDays }) => {
             const item = ITEM_BY_ID[recipe.itemId];
@@ -129,16 +136,24 @@ export function WorkshopPanel() {
                 <Icon name={item?.icon ?? 'parts'} size={20} className="build-icon" />
                 <span className="col grow">
                   <span className="recipe-name">
-                    {item?.name ?? recipe.itemId}
+                    {item ? itemName(item) : recipe.itemId}
                     {recipe.yield > 1 && <span className="tone-muted"> ×{recipe.yield}</span>}
                   </span>
-                  <span className="recipe-desc tone-muted">{item?.description}</span>
+                  <span className="recipe-desc tone-muted">{item ? itemDescription(item) : null}</span>
                   <span className="recipe-cost mono">
                     {costText(recipe.cost)}
                     {recipe.itemCost?.length
-                      ? ` · ${recipe.itemCost.map((c) => `${c.count}× ${ITEM_BY_ID[c.itemId]?.name ?? c.itemId}`).join(', ')}`
+                      ? ` · ${recipe.itemCost
+                          .map((c) => {
+                            const part = ITEM_BY_ID[c.itemId];
+                            return t('workshop.itemCost', {
+                              count: c.count,
+                              name: part ? itemName(part) : c.itemId,
+                            });
+                          })
+                          .join(', ')}`
                       : ''}
-                    {estimatedDays !== null ? ` · ~${estimatedDays}d` : ''}
+                    {estimatedDays !== null ? t('workshop.estimate', { days: estimatedDays }) : ''}
                   </span>
                 </span>
                 <Button
@@ -147,10 +162,11 @@ export function WorkshopPanel() {
                   title={reason}
                   onClick={() => {
                     const result = queueCraft(recipe.id);
-                    notify(result.message ?? (result.ok ? 'Queued.' : 'Cannot craft that.'), result.ok ? 'good' : 'bad');
+                    const fallback = result.ok ? t('workshop.queuedOk') : t('workshop.cannotCraft');
+                    notify(result.message ?? fallback, result.ok ? 'good' : 'bad');
                   }}
                 >
-                  {ok ? 'Craft' : (reason ?? 'Unavailable')}
+                  {ok ? t('workshop.craft') : (reason ?? t('base.unavailable'))}
                 </Button>
               </li>
             );
@@ -158,27 +174,32 @@ export function WorkshopPanel() {
         </ul>
       </Panel>
 
-      <Panel title="Stores" note={`${inventory.reduce((a, r) => a + r.entry.count, 0)} items`}>
-        {inventory.length === 0 && <EmptyState>The shelves are bare.</EmptyState>}
+      <Panel
+        title={t('workshop.stores')}
+        note={t('workshop.itemCount', {
+          count: inventory.reduce((a, r) => a + r.entry.count, 0),
+        })}
+      >
+        {inventory.length === 0 && <EmptyState>{t('workshop.shelvesBare')}</EmptyState>}
         <ul className="inv-list">
           {inventory.map(({ entry, def }) => (
             <li key={entry.itemId} className="inv-row">
               <Icon name={def.icon} size={20} className="build-icon" />
               <span className="col grow">
                 <span>
-                  {def.name} <span className="num tone-muted">×{entry.count}</span>
+                  {itemName(def)} <span className="num tone-muted">×{entry.count}</span>
                 </span>
-                <span className="tone-muted">{def.description}</span>
+                <span className="tone-muted">{itemDescription(def)}</span>
               </span>
               {def.consumable && def.use && (
                 <Button
                   size="sm"
                   onClick={() => {
                     const result = consumeItem(entry.itemId, null);
-                    notify(result.message ?? 'Used.', result.ok ? 'good' : 'bad');
+                    notify(result.message ?? t('workshop.used'), result.ok ? 'good' : 'bad');
                   }}
                 >
-                  Use
+                  {t('workshop.use')}
                 </Button>
               )}
               <Button
@@ -186,11 +207,11 @@ export function WorkshopPanel() {
                 tone="ghost"
                 onClick={() => {
                   const result = salvage(entry.itemId);
-                  notify(result.message ?? 'Salvaged.', result.ok ? 'good' : 'bad');
+                  notify(result.message ?? t('workshop.salvaged'), result.ok ? 'good' : 'bad');
                 }}
-                title={`Recovers ${def.salvage} components`}
+                title={t('workshop.salvageHint', { value: def.salvage })}
               >
-                Salvage
+                {t('workshop.salvage')}
               </Button>
             </li>
           ))}

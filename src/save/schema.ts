@@ -1,5 +1,6 @@
 import type { GameState, MetaProfile } from '@engine';
 import { SAVE_VERSION } from '@engine';
+import { DEFAULT_LOCALE, type LocaleId } from '@i18n';
 
 /**
  * The save file envelope.
@@ -56,6 +57,8 @@ export interface MetaFile {
 }
 
 export interface Settings {
+  /** The interface language. Anything untranslated falls back to English. */
+  locale: LocaleId;
   motion: 'full' | 'reduced';
   contrast: 'normal' | 'high';
   textScale: 'small' | 'normal' | 'large' | 'xlarge';
@@ -68,6 +71,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  locale: DEFAULT_LOCALE,
   motion: 'full',
   contrast: 'normal',
   textScale: 'normal',

@@ -1,4 +1,6 @@
 import type { Breakdown, ResourceDef } from '@engine';
+import { t } from '@i18n';
+import { resourceName } from '@i18n/content';
 import { Bar } from './Bar';
 import { BreakdownPopover } from './BreakdownPopover';
 
@@ -61,15 +63,16 @@ export function Gauge({ def, value, cap, net, production, consumption, numeric }
    */
   const critical = isFlow ? short : daysLeft !== null && daysLeft <= 4;
 
+  const name = resourceName(def);
   const barColour = isFlow && short ? 'var(--alarm)' : def.colour;
   const barLabel = isFlow
-    ? `${def.name}: ${Math.round(draw)} drawn of ${Math.round(supply)} supplied`
-    : `${def.name} ${Math.round(fraction * 100)}%`;
+    ? t('rail.loadLabel', { name, draw: Math.round(draw), supply: Math.round(supply) })
+    : t('rail.percentLabel', { name, percent: Math.round(fraction * 100) });
 
   return (
     <div className={`gauge ${critical ? 'gauge-critical' : ''}`}>
       <div className="gauge-head">
-        <span className="gauge-name">{def.name}</span>
+        <span className="gauge-name">{name}</span>
         <span className="gauge-value num">
           {isFlow ? (
             <>
@@ -90,28 +93,35 @@ export function Gauge({ def, value, cap, net, production, consumption, numeric }
       <div className="gauge-foot">
         {isFlow ? (
           <span className={`num ${short ? 'tone-bad' : 'tone-muted'}`}>
-            {short ? `${fmt(draw - supply)}${def.unit ?? ''} short` : `${fmt(supply - draw)}${def.unit ?? ''} spare`}
+            {short
+              ? t('rail.short', { value: fmt(draw - supply), unit: def.unit ?? '' })
+              : t('rail.spare', { value: fmt(supply - draw), unit: def.unit ?? '' })}
           </span>
         ) : (
           net !== undefined && (
             <span className={`num ${netClass(net)}`}>
-              {net >= 0 ? '+' : ''}
-              {fmt(net)}/day
+              {t('rail.perDay', { value: `${net >= 0 ? '+' : ''}${fmt(net)}` })}
             </span>
           )
         )}
         {daysLeft !== null && daysLeft < 10 && (
-          <span className="gauge-eta tone-warn">{daysLeft}d left</span>
+          <span className="gauge-eta tone-warn">{t('rail.daysLeft', { days: daysLeft })}</span>
         )}
         <span className="gauge-inspect">
           {production && (
-            <BreakdownPopover breakdown={production} title={`${def.name} — ${isFlow ? 'supply' : 'production'}`}>
-              <span className="bd-chip">in</span>
+            <BreakdownPopover
+              breakdown={production}
+              title={isFlow ? t('rail.supply', { name }) : t('rail.production', { name })}
+            >
+              <span className="bd-chip">{t('rail.in')}</span>
             </BreakdownPopover>
           )}
           {consumption && (
-            <BreakdownPopover breakdown={consumption} title={`${def.name} — ${isFlow ? 'draw' : 'consumption'}`}>
-              <span className="bd-chip">out</span>
+            <BreakdownPopover
+              breakdown={consumption}
+              title={isFlow ? t('rail.draw', { name }) : t('rail.consumption', { name })}
+            >
+              <span className="bd-chip">{t('rail.out')}</span>
             </BreakdownPopover>
           )}
         </span>

@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Breakdown, BreakdownTerm } from '@engine';
+import { t } from '@i18n';
 
 /**
  * The single renderer for every derived number in the game.
@@ -101,7 +102,7 @@ export function BreakdownPopover({ breakdown, title, children, unit }: Breakdown
         aria-expanded={open}
         aria-controls={id}
         /* The visible content is a bare number, so the control needs its own name. */
-        aria-label={`Inspect ${title}`}
+        aria-label={t('rail.inspect', { subject: title })}
         onClick={() => setOpen((v) => !v)}
         title={`Inspect: ${title}`}
       >
@@ -126,7 +127,7 @@ export function BreakdownPopover({ breakdown, title, children, unit }: Breakdown
             </span>
           </header>
           <ul className="bd-terms">
-            {breakdown.terms.length === 0 && <li className="tone-muted">No contributing terms.</li>}
+            {breakdown.terms.length === 0 && <li className="tone-muted">{t('breakdown.none')}</li>}
             {breakdown.terms.map((term, i) => (
               <li key={`${term.label}-${i}`} className={termClass(term)}>
                 <span className="bd-term-label">{term.label}</span>

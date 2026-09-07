@@ -15,7 +15,9 @@
     "types": ["node"],
     "paths": {
       "@engine/*": ["./src/engine/*"],
-      "@engine": ["./src/engine/index.ts"]
+      "@engine": ["./src/engine/index.ts"],
+      "@i18n": ["./src/i18n/index.ts"],
+      "@i18n/*": ["./src/i18n/*"]
     }
   },
   "include": ["vite.config.ts", "playwright.config.ts", "scripts", "vitest.config.ts"],

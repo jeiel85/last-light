@@ -9,15 +9,29 @@ import { BreakdownPopover } from '@ui/components/BreakdownPopover';
 import { Guidance } from '@ui/components/Guidance';
 import { Icon } from '@ui/components/Icon';
 import { announce } from '@ui/hooks/announce';
+import { useT } from '@ui/hooks/useTranslation';
+import { t } from '@i18n';
+import {
+  facilityDescription,
+  facilityLevelSummary,
+  facilityName,
+  resourceName,
+} from '@i18n/content';
 
-const DECK_NAMES = ['Deck A — entry level', 'Deck B — services', 'Deck C — the deep floor'];
+const DECK_KEYS = ['base.deck0', 'base.deck1', 'base.deck2'] as const;
 
+/**
+ * "12 components, 3 fuel" — the shopping list for a build or an upgrade.
+ *
+ * The lowercase is for English running text and is a no-op in scripts that have no case,
+ * which is why it survives translation rather than being spelled out per locale.
+ */
 function costText(cost: Partial<Record<ResourceId, number>> | undefined): string {
   if (!cost) return '—';
   const parts = RESOURCE_LIST.filter((r) => (cost[r.id] ?? 0) > 0).map(
-    (r) => `${Math.ceil(cost[r.id] ?? 0)} ${r.name.toLowerCase()}`,
+    (r) => `${Math.ceil(cost[r.id] ?? 0)} ${resourceName(r).toLowerCase()}`,
   );
-  return parts.length ? parts.join(', ') : 'nothing';
+  return parts.length ? parts.join(', ') : t('base.costNothing');
 }
 
 /**
@@ -34,6 +48,7 @@ export function BasePanel() {
   const clearSlot = useGameStore((s) => s.clearSlot);
   const setPriority = useGameStore((s) => s.setPriority);
   const notify = useGameStore((s) => s.notify);
+  const t = useT();
 
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const power = useMemo(() => Facilities.powerReport(state), [state]);
@@ -48,8 +63,9 @@ export function BasePanel() {
   const decks = [0, 1, 2].map((deck) => state.slots.filter((s) => s.deck === deck));
 
   const act = (result: { ok: boolean; message?: string }) => {
-    notify(result.message ?? (result.ok ? 'Done.' : 'That is not possible right now.'), result.ok ? 'good' : 'bad');
-    if (result.ok) announce(result.message ?? 'Done.');
+    const fallback = result.ok ? t('base.done') : t('base.notPossible');
+    notify(result.message ?? fallback, result.ok ? 'good' : 'bad');
+    if (result.ok) announce(result.message ?? fallback);
   };
 
   return (
@@ -59,36 +75,29 @@ export function BasePanel() {
           {
             id: 'base.power',
             when: power.deficit > 0,
-            title: 'The lights are going out somewhere',
-            body: (
-              <>
-                Draw is above supply, so the lowest-priority facilities are being browned out. Raise
-                the reactor, lower the draw, or decide what you are willing to lose using the
-                priorities below.
-              </>
-            ),
+            title: t('guidance.power.title'),
+            body: t('guidance.power.body'),
           },
           {
             id: 'base.build',
-            title: 'Pick a slot, then a facility',
-            body: (
-              <>
-                Every facility needs a slot on a deck that permits it. Building charges the materials
-                at once and then takes days of labour from whoever is not otherwise busy.
-              </>
-            ),
+            title: t('guidance.build.title'),
+            body: t('guidance.build.body'),
           },
         ]}
       />
 
       <Panel
-        title="Vault Meridian"
-        note={`${state.facilities.length} facilities · ${Math.round(power.demand.total)}/${Math.round(power.capacity.total)} kW`}
+        title={t('base.title')}
+        note={t('base.note', {
+          facilities: state.facilities.length,
+          draw: Math.round(power.demand.total),
+          supply: Math.round(power.capacity.total),
+        })}
       >
         <div className="vault">
           {decks.map((slots, deck) => (
             <div key={deck} className="vault-deck">
-              <span className="vault-deck-label label">{DECK_NAMES[deck]}</span>
+              <span className="vault-deck-label label">{t(DECK_KEYS[deck]!)}</span>
               <div className="vault-slots">
                 {slots.map((s) => (
                   <SlotCell
@@ -108,22 +117,19 @@ export function BasePanel() {
 
       {slot && (
         <Panel
-          title={occupant ? Facilities.facilityDef(occupant).name : 'Empty slot'}
+          title={occupant ? facilityName(Facilities.facilityDef(occupant)) : t('base.emptySlot')}
           note={slot.id}
           actions={
             <Button size="sm" tone="ghost" onClick={() => setSelectedSlot(null)}>
-              Close
+              {t('base.close')}
             </Button>
           }
         >
           {slot.sealed && !occupant && (
             <>
-              <p className="prose">
-                This part of the deck is behind a collapse. Clearing it costs {slot.clearCost} components and
-                takes several days of labour.
-              </p>
+              <p className="prose">{t('base.clearBlurb', { cost: slot.clearCost })}</p>
               <Bar value={slot.clearProgress / Math.max(1, slot.clearLabour)} colour="var(--rust)" />
-              <Button onClick={() => act(clearSlot(slot.id))}>Start clearing</Button>
+              <Button onClick={() => act(clearSlot(slot.id))}>{t('base.startClearing')}</Button>
             </>
           )}
 
@@ -138,19 +144,27 @@ export function BasePanel() {
                   <li key={def.id} className={`build-row ${!permitted || !check.ok ? 'build-row-off' : ''}`}>
                     <Icon name={def.icon} size={20} className="build-icon" />
                     <span className="col grow">
-                      <span className="build-name">{def.name}</span>
-                      <span className="build-desc tone-muted">{level.summary}</span>
+                      <span className="build-name">{facilityName(def)}</span>
+                      <span className="build-desc tone-muted">{facilityLevelSummary(def, 1)}</span>
                       <span className="build-cost mono">
-                        {costText(level.buildCost)} · {level.labour} labour · {level.powerDraw} kW
+                        {t('base.buildCost', {
+                          cost: costText(level.buildCost),
+                          labour: level.labour,
+                          power: level.powerDraw,
+                        })}
                       </span>
                     </span>
                     <Button
                       size="sm"
                       disabled={!permitted || !check.ok}
-                      title={!permitted ? 'Not permitted on this deck' : check.reason}
+                      title={!permitted ? t('base.notPermitted') : check.reason}
                       onClick={() => act(build(def.id, slot.id))}
                     >
-                      {permitted ? (check.ok ? 'Build' : (check.reason ?? 'Unavailable')) : 'Wrong deck'}
+                      {permitted
+                        ? check.ok
+                          ? t('base.build')
+                          : (check.reason ?? t('base.unavailable'))
+                        : t('base.wrongDeck')}
                     </Button>
                   </li>
                 );
@@ -160,12 +174,16 @@ export function BasePanel() {
         </Panel>
       )}
 
-      <Panel title="Power priority" note={power.deficit > 0 ? `${Math.round(power.deficit)} kW short` : 'balanced'}>
-        <p className="hint">
-          When supply falls short, the lowest priority facilities are browned out first. Set what you are
-          willing to lose.
-        </p>
-        {state.facilities.length === 0 && <EmptyState>Nothing built yet.</EmptyState>}
+      <Panel
+        title={t('base.priorityTitle')}
+        note={
+          power.deficit > 0
+            ? t('base.priorityShort', { amount: Math.round(power.deficit) })
+            : t('base.priorityBalanced')
+        }
+      >
+        <p className="hint">{t('base.priorityHint')}</p>
+        {state.facilities.length === 0 && <EmptyState>{t('base.nothingBuilt')}</EmptyState>}
         <ul className="priority-list">
           {state.facilities
             .slice()
@@ -175,7 +193,7 @@ export function BasePanel() {
               return (
                 <li key={facility.id} className={facility.brownedOut ? 'tone-bad' : ''}>
                   <span className="grow truncate">
-                    {def.name} <span className="tone-muted">L{facility.level}</span>
+                    {facilityName(def)} <span className="tone-muted">L{facility.level}</span>
                   </span>
                   <span className="mono">{def.levels[facility.level - 1]?.powerDraw ?? 0} kW</span>
                   <input
@@ -184,7 +202,7 @@ export function BasePanel() {
                     max={10}
                     value={facility.priority}
                     onChange={(e) => setPriority(facility.id, Number(e.target.value))}
-                    aria-label={`Power priority for ${def.name}`}
+                    aria-label={t('base.priorityFor', { name: facilityName(def) })}
                   />
                   <span className="num">{facility.priority}</span>
                 </li>
@@ -192,11 +210,13 @@ export function BasePanel() {
             })}
         </ul>
         <div className="row gap-2">
-          <BreakdownPopover breakdown={power.capacity} title="Power capacity" unit="kW">
-            <span className="num">supply {Math.round(power.capacity.total)}</span>
+          <BreakdownPopover breakdown={power.capacity} title={t('dash.powerCapacity')} unit="kW">
+            <span className="num">
+              {t('base.supplyLine', { value: Math.round(power.capacity.total) })}
+            </span>
           </BreakdownPopover>
-          <BreakdownPopover breakdown={power.demand} title="Power demand" unit="kW">
-            <span className="num">draw {Math.round(power.demand.total)}</span>
+          <BreakdownPopover breakdown={power.demand} title={t('dash.powerDemand')} unit="kW">
+            <span className="num">{t('base.drawLine', { value: Math.round(power.demand.total) })}</span>
           </BreakdownPopover>
         </div>
       </Panel>
@@ -218,6 +238,7 @@ function SlotCell({
   onSelect: () => void;
 }) {
   const def = facility ? Facilities.facilityDef(facility) : null;
+  const t = useT();
   const classes = [
     'slot',
     active ? 'slot-active' : '',
@@ -234,7 +255,9 @@ function SlotCell({
       <span className="slot-icon">
         {def ? <Icon name={def.icon} size={22} /> : <Icon name={slot.sealed ? 'warning' : 'more'} size={18} />}
       </span>
-      <span className="slot-name truncate">{def ? def.name : slot.sealed ? 'Collapsed' : 'Empty'}</span>
+      <span className="slot-name truncate">
+        {def ? facilityName(def) : slot.sealed ? t('base.collapsed') : t('base.empty')}
+      </span>
       {facility && (
         <>
           <span className="slot-level mono">L{facility.level}</span>
@@ -271,6 +294,7 @@ function FacilityDetail({
   onPriority: (p: number) => void;
 }) {
   const state = useGameStore((s) => s.state)!;
+  const t = useT();
   const def = Facilities.facilityDef(facility);
   const level = def.levels[facility.level - 1];
   const next = def.levels[facility.level];
@@ -280,30 +304,32 @@ function FacilityDetail({
 
   return (
     <>
-      <p className="prose">{def.description}</p>
+      <p className="prose">{facilityDescription(def)}</p>
       <ul className="kv">
         <li>
-          <span>Level</span>
+          <span>{t('base.level')}</span>
           <span className="num">{facility.level} / 3</span>
         </li>
         <li>
-          <span>Condition</span>
+          <span>{t('base.condition')}</span>
           <span className={`num ${facility.condition < 40 ? 'tone-bad' : ''}`}>
             {Math.round(facility.condition)}%
           </span>
         </li>
         <li>
-          <span>Status</span>
-          <span className={facility.status === 'operational' ? 'tone-good' : 'tone-warn'}>{facility.status}</span>
+          <span>{t('base.status')}</span>
+          <span className={facility.status === 'operational' ? 'tone-good' : 'tone-warn'}>
+            {t(`base.status.${facility.status}`)}
+          </span>
         </li>
         <li>
-          <span>Staff</span>
+          <span>{t('base.staff')}</span>
           <span className="num">
             {facility.staff.length} / {Facilities.staffSlots(facility)}
           </span>
         </li>
         <li>
-          <span>Power draw</span>
+          <span>{t('base.powerDraw')}</span>
           <span className="num">{level?.powerDraw ?? 0} kW</span>
         </li>
       </ul>
@@ -311,36 +337,42 @@ function FacilityDetail({
       {facility.status === 'building' && (
         <>
           <p className="hint">
-            {facility.upgradingTo ? `Upgrading to level ${facility.upgradingTo}.` : 'Under construction.'} Progress
-            comes from unassigned and resting crew.
+            {facility.upgradingTo
+              ? t('base.upgrading', { level: facility.upgradingTo })
+              : t('base.underConstruction')}{' '}
+            {t('base.labourNote')}
           </p>
           <Bar value={facility.progress / Math.max(1, facility.progressRequired)} colour="var(--ice)" height={6} />
         </>
       )}
 
-      <p className="prose">{level?.summary}</p>
-      {next && <p className="hint">Next level: {next.summary}</p>}
+      <p className="prose">{level ? facilityLevelSummary(def, facility.level) : null}</p>
+      {next && (
+        <p className="hint">
+          {t('base.nextLevel', { summary: facilityLevelSummary(def, facility.level + 1) })}
+        </p>
+      )}
 
       <div className="row gap-2 wrap">
         {next && (
           <Button
             disabled={!upgradeCheck.ok}
-            title={upgradeCheck.reason ?? `Costs ${costText(next.buildCost)}`}
+            title={upgradeCheck.reason ?? t('base.upgrade', { cost: costText(next.buildCost) })}
             onClick={onUpgrade}
           >
-            Upgrade — {costText(next.buildCost)}
+            {t('base.upgrade', { cost: costText(next.buildCost) })}
           </Button>
         )}
         {repairNeeded && (
-          <Button onClick={onRepair} title={`Costs ${repairPrice.components} components`}>
-            Repair — {repairPrice.components} components
+          <Button onClick={onRepair} title={t('base.repair', { cost: repairPrice.components })}>
+            {t('base.repair', { cost: repairPrice.components })}
           </Button>
         )}
         <Button tone="danger" onClick={onDemolish}>
-          Demolish
+          {t('base.demolish')}
         </Button>
         <label className="inline-field">
-          <span className="label">Priority</span>
+          <span className="label">{t('base.priority')}</span>
           <input
             type="number"
             className="input input-sm input-num"

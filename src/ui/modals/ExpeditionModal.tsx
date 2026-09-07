@@ -7,6 +7,15 @@ import { Button } from '@ui/components/Button';
 import { playCue } from '@ui/audio/cues';
 import { Icon } from '@ui/components/Icon';
 import { announce } from '@ui/hooks/announce';
+import { useT } from '@ui/hooks/useTranslation';
+import { siteName } from '@ui/lib/labels';
+import {
+  encounterChoiceText,
+  encounterText,
+  encounterTitle,
+  resourceName,
+  skillName,
+} from '@i18n/content';
 
 /**
  * Interactive expedition resolution.
@@ -20,6 +29,7 @@ export function ExpeditionModal() {
   const closeExpedition = useGameStore((s) => s.closeExpedition);
   const notify = useGameStore((s) => s.notify);
   const [showLog, setShowLog] = useState(false);
+  const t = useT();
 
   const expedition = state.expeditions.find((e) => e.id === state.activeExpeditionId);
   const beat = useMemo(() => Expedition.currentBeat(state), [state]);
@@ -36,24 +46,29 @@ export function ExpeditionModal() {
   const choose = (choiceId: string) => {
     const result = resolveBeat(choiceId);
     if (!result.ok) {
-      notify(result.message ?? 'That option is not available.', 'bad');
+      notify(result.message ?? t('exped.unavailableChoice'), 'bad');
       return;
     }
     playCue('tick');
-    announce('Outcome resolved.');
+    announce(t('event.outcomeAnnounced'));
   };
 
   const header = (
     <div className="exped-head">
       <span className="exped-loc">
-        <Icon name={archetype?.icon ?? 'hatch'} size={16} /> {location?.name ?? 'Somewhere out there'}
+        <Icon name={archetype?.icon ?? 'hatch'} size={16} />{' '}
+        {location ? siteName(location) : t('exped.somewhere')}
       </span>
       <span className="mono tone-muted">
-        beat {expedition.log.length + 1}
-        {beat ? ` / ${beat.total}` : ''}
+        {beat
+          ? t('exped.beatOf', { index: expedition.log.length + 1, total: beat.total })
+          : t('exped.beat', { index: expedition.log.length + 1 })}
       </span>
       <span className="mono tone-muted">
-        ammo {Math.round(expedition.loadout.ammo)} · rations {Math.round(expedition.loadout.rations)}
+        {t('exped.supplies', {
+          ammo: Math.round(expedition.loadout.ammo),
+          rations: Math.round(expedition.loadout.rations),
+        })}
       </span>
     </div>
   );
@@ -68,26 +83,29 @@ export function ExpeditionModal() {
     const haul = Object.entries(expedition.haulResources).filter(([, amount]) => (amount ?? 0) > 0);
     return (
       <Modal
-        title="The team is coming back"
+        title={t('exped.returning')}
         onClose={closeExpedition}
         size="normal"
         footer={
           <Button tone="primary" onClick={closeExpedition} data-autofocus>
-            Carry on
+            {t('event.carryOn')}
           </Button>
         }
       >
         {header}
         <p className="prose">
-          {expedition.aborted
-            ? 'They turned around early. Whatever they had already gathered comes home with them.'
-            : 'The site is done. They start the walk back with what they could carry.'}
+          {expedition.aborted ? t('exped.aborted') : t('exped.finished')}
         </p>
         {haul.length > 0 && (
           <ul className="haul-list">
             {haul.map(([id, amount]) => (
               <li key={id}>
-                <span>{RESOURCES[id as ResourceId]?.name ?? id}</span>
+                <span>
+                  {(() => {
+                    const def = RESOURCES[id as ResourceId];
+                    return def ? resourceName(def) : id;
+                  })()}
+                </span>
                 <span className="num">+{Math.round(amount ?? 0)}</span>
               </li>
             ))}
@@ -99,7 +117,7 @@ export function ExpeditionModal() {
 
   return (
     <Modal
-      title={beat.encounter.title}
+      title={encounterTitle(beat.encounter)}
       dismissible={false}
       size="normal"
       footer={
@@ -112,7 +130,7 @@ export function ExpeditionModal() {
             ))}
           </span>
           <Button size="sm" tone="ghost" className="right" onClick={() => setShowLog((v) => !v)}>
-            {showLog ? 'Hide log' : `Log (${expedition.log.length})`}
+            {showLog ? t('exped.hideLog') : t('exped.showLog', { count: expedition.log.length })}
           </Button>
         </div>
       }
@@ -130,9 +148,13 @@ export function ExpeditionModal() {
               {entry.outcomeText}
               {entry.roll && (
                 <span className="mono roll">
-                  {' '}
-                  ({entry.roll.actor} {entry.roll.skill} {entry.roll.value} vs {entry.roll.target} —{' '}
-                  {entry.roll.success ? 'passed' : 'failed'})
+                  {t('exped.rollDetail', {
+                    actor: entry.roll.actor,
+                    skill: skillName(entry.roll.skill, entry.roll.skill),
+                    value: entry.roll.value,
+                    target: entry.roll.target,
+                    result: entry.roll.success ? t('exped.passed') : t('exped.failed'),
+                  })}
                 </span>
               )}
             </li>
@@ -140,10 +162,12 @@ export function ExpeditionModal() {
         </ol>
       )}
 
-      <p className="prose event-body">{beat.encounter.text}</p>
+      <p className="prose event-body">{encounterText(beat.encounter)}</p>
 
       <ul className="choice-stack">
-        {beat.choices.map(({ choice, enabled, reason }, index) => (
+        {beat.choices.map(({ choice, enabled, reason }, index) => {
+          const text = encounterChoiceText(beat.encounter, choice);
+          return (
           <li key={choice.id}>
             <button
               type="button"
@@ -152,20 +176,26 @@ export function ExpeditionModal() {
               onClick={() => choose(choice.id)}
               {...(index === 0 ? { 'data-autofocus': true } : {})}
             >
-              <span className="event-choice-label">{choice.label}</span>
-              {choice.hint && <span className="event-choice-hint">{choice.hint}</span>}
+              <span className="event-choice-label">{text.label}</span>
+              {text.hint && <span className="event-choice-hint">{text.hint}</span>}
               <span className="event-choice-meta mono">
                 {choice.check && (
                   <span className="tone-info">
-                    {choice.check.skill} vs {choice.check.target} · {choice.check.actor}
+                    {skillName(choice.check.skill, choice.check.skill)} vs {choice.check.target} ·{' '}
+                    {choice.check.actor}
                   </span>
                 )}
-                {choice.requiresAmmo && <span className="tone-muted">{choice.requiresAmmo} ammo</span>}
+                {choice.requiresAmmo && (
+                  <span className="tone-muted">
+                    {t('exped.ammoCost', { count: choice.requiresAmmo })}
+                  </span>
+                )}
                 {!enabled && reason && <span className="tone-bad">{reason}</span>}
               </span>
             </button>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </Modal>
   );

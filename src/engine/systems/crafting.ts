@@ -22,6 +22,13 @@ export interface RecipeAvailability {
   recipe: RecipeDef;
   ok: boolean;
   reason?: string;
+  /**
+   * True when the only thing standing in the way is an unfinished research project.
+   *
+   * The workshop's "hide un-researched" filter needs to know this, and matching on the
+   * reason string would have made that filter break the moment the reason was translated.
+   */
+  researchLocked?: boolean;
   /** Estimated days at the current staffing level. */
   estimatedDays: number | null;
 }
@@ -31,7 +38,7 @@ export function recipeAvailability(state: GameState, recipe: RecipeDef): RecipeA
   const facilityName = FACILITY_BY_ID[recipe.facility]?.name ?? recipe.facility;
 
   if (recipe.requiresResearch && !state.research.completed.includes(recipe.requiresResearch)) {
-    return { recipe, ok: false, reason: 'Requires research', estimatedDays: null };
+    return { recipe, ok: false, reason: 'Requires research', researchLocked: true, estimatedDays: null };
   }
   if (!facility || facility.status === 'building') {
     return { recipe, ok: false, reason: `Requires ${facilityName}`, estimatedDays: null };

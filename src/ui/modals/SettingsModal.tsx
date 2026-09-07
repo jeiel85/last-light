@@ -2,6 +2,8 @@ import { useGameStore } from '@store/gameStore';
 import { useUiStore } from '@store/uiStore';
 import { Modal } from '@ui/components/Modal';
 import { Button } from '@ui/components/Button';
+import { useT } from '@ui/hooks/useTranslation';
+import { LOCALES, type LocaleId } from '@i18n';
 
 /**
  * Accessibility and comfort settings. Every option here retunes design tokens at the
@@ -15,55 +17,74 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   // Guidance is a per-run flag; while a run is open the control must show that run's value
   // rather than the default the next run would start with.
   const guidanceOn = state ? state.guidance.enabled : settings.guidance;
+  const t = useT();
   const setScreen = useUiStore((s) => s.setScreen);
 
   return (
-    <Modal title="Settings" onClose={onClose} size="narrow">
+    <Modal title={t('settings.title')} onClose={onClose} size="narrow">
       <ul className="settings-list">
         <li>
           <span className="col grow">
-            <strong>Motion</strong>
-            <span className="tone-muted">Removes ambient flicker, scanlines, and transitions.</span>
+            <strong>{t('settings.language')}</strong>
+            <span className="tone-muted">{t('settings.languageHint')}</span>
+          </span>
+          <select
+            className="input input-sm"
+            value={settings.locale}
+            onChange={(e) => setSettings({ locale: e.target.value as LocaleId })}
+            aria-label={t('settings.language')}
+          >
+            {LOCALES.map((locale) => (
+              <option key={locale.id} value={locale.id}>
+                {locale.name}
+              </option>
+            ))}
+          </select>
+        </li>
+        <li>
+          <span className="col grow">
+            <strong>{t('settings.motion')}</strong>
+            <span className="tone-muted">{t('settings.motionHint')}</span>
           </span>
           <select
             className="input input-sm"
             value={settings.motion}
             onChange={(e) => setSettings({ motion: e.target.value as typeof settings.motion })}
-            aria-label="Motion"
+            aria-label={t('settings.motion')}
           >
-            <option value="full">Full</option>
-            <option value="reduced">Reduced</option>
+            <option value="full">{t('settings.motion.full')}</option>
+            <option value="reduced">{t('settings.motion.reduced')}</option>
           </select>
         </li>
         <li>
           <span className="col grow">
-            <strong>Contrast</strong>
-            <span className="tone-muted">Raises every ink step and hardens the rules.</span>
+            <strong>{t('settings.contrast')}</strong>
+            <span className="tone-muted">{t('settings.contrastHint')}</span>
           </span>
           <select
             className="input input-sm"
             value={settings.contrast}
             onChange={(e) => setSettings({ contrast: e.target.value as typeof settings.contrast })}
-            aria-label="Contrast"
+            aria-label={t('settings.contrast')}
           >
-            <option value="normal">Normal</option>
-            <option value="high">High</option>
+            <option value="normal">{t('settings.contrast.normal')}</option>
+            <option value="high">{t('settings.contrast.high')}</option>
           </select>
         </li>
         <li>
           <span className="col grow">
-            <strong>Text size</strong>
+            <strong>{t('settings.textSize')}</strong>
           </span>
           <select
             className="input input-sm"
             value={settings.textScale}
             onChange={(e) => setSettings({ textScale: e.target.value as typeof settings.textScale })}
-            aria-label="Text size"
+            aria-label={t('settings.textSize')}
           >
-            <option value="small">Small</option>
-            <option value="normal">Normal</option>
-            <option value="large">Large</option>
-            <option value="xlarge">Extra large</option>
+            <option value="small">{t('settings.scale.small')}</option>
+            <option value="normal">{t('settings.scale.normal')}</option>
+            <option value="large">{t('settings.scale.large')}</option>
+            <option value="xlarge">{t('settings.scale.xlarge')}</option>
           </select>
         </li>
         <li>
@@ -74,15 +95,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setSettings({ sound: e.target.checked })}
             />
             <span className="col">
-              <strong>Sound</strong>
-              <span className="tone-muted">Short synthesised cues for the day, events, and outcomes.</span>
+              <strong>{t('settings.sound')}</strong>
+              <span className="tone-muted">{t('settings.soundHint')}</span>
             </span>
           </label>
         </li>
         {settings.sound && (
           <li>
             <span className="col grow">
-              <strong>Volume</strong>
+              <strong>{t('settings.volume')}</strong>
             </span>
             <input
               type="range"
@@ -90,7 +111,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               max={100}
               value={Math.round(settings.soundVolume * 100)}
               onChange={(e) => setSettings({ soundVolume: Number(e.target.value) / 100 })}
-              aria-label="Sound volume"
+              aria-label={t('settings.volumeLabel')}
             />
             <span className="num">{Math.round(settings.soundVolume * 100)}</span>
           </li>
@@ -103,8 +124,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setSettings({ numericMode: e.target.checked })}
             />
             <span className="col">
-              <strong>Numeric gauges</strong>
-              <span className="tone-muted">Show caps and exact figures alongside every bar.</span>
+              <strong>{t('settings.numeric')}</strong>
+              <span className="tone-muted">{t('settings.numericHint')}</span>
             </span>
           </label>
         </li>
@@ -116,8 +137,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setSettings({ confirmEndDay: e.target.checked })}
             />
             <span className="col">
-              <strong>Confirm End Day</strong>
-              <span className="tone-muted">Asks before time moves.</span>
+              <strong>{t('settings.confirmEndDay')}</strong>
+              <span className="tone-muted">{t('settings.confirmEndDayHint')}</span>
             </span>
           </label>
         </li>
@@ -129,8 +150,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setSettings({ guidance: e.target.checked })}
             />
             <span className="col">
-              <strong>Contextual guidance</strong>
-              <span className="tone-muted">Explains systems the first time they matter.</span>
+              <strong>{t('settings.guidance')}</strong>
+              <span className="tone-muted">{t('settings.guidanceHint')}</span>
             </span>
           </label>
         </li>
@@ -147,9 +168,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               setScreen('menu');
             }}
           >
-            Abandon this run
+            {t('settings.abandon')}
           </Button>
-          <p className="hint">The autosave is kept — abandoning only returns you to the menu.</p>
+          <p className="hint">{t('settings.abandonHint')}</p>
         </>
       )}
     </Modal>

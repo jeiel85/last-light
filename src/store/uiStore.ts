@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { MessageKey } from '@i18n';
 
 /**
  * Presentation state.
@@ -65,7 +66,10 @@ export const useUiStore = create<UiStoreState>((set) => ({
 
 export interface PanelDef {
   id: PanelId;
+  /** English label, kept for tests and for the fallback locale. */
   label: string;
+  /** Translation key, so the nav reads in whatever language is selected. */
+  messageKey: MessageKey;
   key: string;
   /**
    * Mobile shows four destinations plus a "More" sheet rather than seven cramped tabs,
@@ -75,13 +79,13 @@ export interface PanelDef {
 }
 
 export const PANELS: PanelDef[] = [
-  { id: 'dashboard', label: 'Dashboard', key: '1', primary: true },
-  { id: 'crew', label: 'Crew', key: '2', primary: true },
-  { id: 'base', label: 'Base', key: '3', primary: true },
-  { id: 'workshop', label: 'Workshop', key: '4', primary: false },
-  { id: 'research', label: 'Research', key: '5', primary: false },
-  { id: 'map', label: 'Map', key: '6', primary: true },
-  { id: 'archive', label: 'Archive', key: '7', primary: false },
+  { id: 'dashboard', label: 'Dashboard', messageKey: 'panel.dashboard', key: '1', primary: true },
+  { id: 'crew', label: 'Crew', messageKey: 'panel.crew', key: '2', primary: true },
+  { id: 'base', label: 'Base', messageKey: 'panel.base', key: '3', primary: true },
+  { id: 'workshop', label: 'Workshop', messageKey: 'panel.workshop', key: '4', primary: false },
+  { id: 'research', label: 'Research', messageKey: 'panel.research', key: '5', primary: false },
+  { id: 'map', label: 'Map', messageKey: 'panel.map', key: '6', primary: true },
+  { id: 'archive', label: 'Archive', messageKey: 'panel.archive', key: '7', primary: false },
 ];
 
 export const PRIMARY_PANELS = PANELS.filter((p) => p.primary);

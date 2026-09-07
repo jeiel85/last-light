@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Survivor } from '@engine';
+import { useT } from '@ui/hooks/useTranslation';
 
 /**
  * Procedural survivor portraits.
@@ -23,6 +24,7 @@ const SKIN = ['#c99a72', '#a87550', '#7c5336', '#e0b48c', '#5f3c26', '#d8a17a', 
 const HAIR = ['#1b1613', '#3a2b21', '#6b4a2f', '#8a8378', '#c9c2b6', '#2a2f36', '#59321f'];
 
 export function Portrait({ survivor, size = 40 }: { survivor: Survivor; size?: number }) {
+  const t = useT();
   const art = useMemo(() => {
     const rnd = mulberry(survivor.portraitSeed);
     const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(rnd() * arr.length)]!;
@@ -49,7 +51,7 @@ export function Portrait({ survivor, size = 40 }: { survivor: Survivor; size?: n
       height={size}
       viewBox="0 0 48 48"
       role="img"
-      aria-label={`Portrait of ${survivor.name} ${survivor.surname}`}
+      aria-label={t('survivor.portrait', { name: `${survivor.name} ${survivor.surname}` })}
     >
       <defs>
         <clipPath id={`pc-${survivor.id}`}>

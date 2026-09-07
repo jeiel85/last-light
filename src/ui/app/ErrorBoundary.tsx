@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { buildSaveFile, downloadText, exportSave } from '@save/serialize';
 import { useGameStore } from '@store/gameStore';
+import { t } from '@i18n';
 
 /**
  * The last line of defence.
@@ -38,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!state) return;
     downloadText(
       `lastlight-recovered-day${state.day}.json`,
-      exportSave(buildSaveFile(state, 0, `Recovered — day ${state.day}`)),
+      exportSave(buildSaveFile(state, 0, `Recovered \u2014 day ${state.day}`)),
     );
   };
 
@@ -51,32 +52,29 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <main className="crash">
         <div className="crash-inner">
-          <p className="eyebrow">Something in the interface has failed</p>
-          <h1 className="crash-title">The lights went out</h1>
+          <p className="eyebrow">{t('crash.eyebrow')}</p>
+          <h1 className="crash-title">{t('crash.title')}</h1>
           <p className="prose">
-            The game hit an error it could not draw its way out of. The simulation itself is
-            unharmed and still in memory
-            {state ? `, at day ${state.day}` : ''} — take the file first, then reload.
+            {t('crash.body', {
+              day: state ? t('crash.atDay', { day: state.day }) : '',
+            })}
           </p>
 
           <div className="row gap-2 wrap crash-actions">
             {state && (
               <button type="button" className="btn btn-primary btn-lg" onClick={this.saveTheRun}>
-                Export this run
+                {t('crash.export')}
               </button>
             )}
             <button type="button" className="btn btn-lg" onClick={() => window.location.reload()}>
-              Reload
+              {t('crash.reload')}
             </button>
           </div>
 
-          <p className="hint">
-            The autosave is untouched, so reloading and choosing <strong>Continue</strong> will
-            usually pick the run back up.
-          </p>
+          <p className="hint">{t('crash.hint')}</p>
 
           <details className="crash-details">
-            <summary>What went wrong</summary>
+            <summary>{t('crash.details')}</summary>
             <pre className="crash-trace">
               {error.message}
               {info ? `\n${info}` : ''}

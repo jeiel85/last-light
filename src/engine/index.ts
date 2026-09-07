@@ -45,8 +45,8 @@ export { LORE, LORE_BY_ID, THEORY_LABEL, THEORY_SUMMARY } from './data/lore';
 export { SCENARIOS, SCENARIO_BY_ID, DEFAULT_SCENARIO } from './data/scenarios';
 export { DIFFICULTIES, DIFFICULTY_BY_ID, DEFAULT_DIFFICULTY } from './data/difficulties';
 export { META_UNLOCKS, UNLOCK_BY_ID, TOTAL_UNLOCK_COST } from './data/metaUnlocks';
-export { BACKGROUNDS, BACKGROUND_BY_ID } from './data/backgrounds';
-export { PERSONALITIES, PERSONALITY_BY_ID } from './data/personalities';
+export { BACKGROUNDS, BACKGROUND_BY_ID, type BackgroundDef } from './data/backgrounds';
+export { PERSONALITIES, PERSONALITY_BY_ID, type PersonalityDef } from './data/personalities';
 
 /* ---- systems */
 export * as Facilities from './systems/facilities';

@@ -15,11 +15,16 @@ import { useGameStore } from '@store/gameStore';
 import { useUiStore } from '@store/uiStore';
 import { Modal } from '@ui/components/Modal';
 import { Button } from '@ui/components/Button';
+import { useT } from '@ui/hooks/useTranslation';
+import { localeTag } from '@i18n';
+import { SCENARIO_BY_ID } from '@engine';
+import { scenarioName } from '@i18n/content';
 
 function when(ts: number): string {
   if (!ts) return '—';
+  const tag = localeTag();
   const date = new Date(ts);
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  return `${date.toLocaleDateString(tag)} ${date.toLocaleTimeString(tag, { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 /**
@@ -33,6 +38,7 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
   const setScreen = useUiStore((s) => s.setScreen);
   const [slots, setSlots] = useState<SlotSummary[]>([]);
   const [busy, setBusy] = useState(false);
+  const t = useT();
 
   const refresh = useCallback(() => {
     void listSlots().then(setSlots);
@@ -43,10 +49,10 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
   const save = async (slot: number) => {
     if (!state) return;
     setBusy(true);
-    const result = await writeSlot(state, slot, `Day ${state.day}`);
+    const result = await writeSlot(state, slot, `${t('topbar.day')} ${state.day}`);
     setBusy(false);
     notify(
-      result.ok ? `Saved to slot ${slot}.` : (result.error ?? 'The browser refused to write the save.'),
+      result.ok ? t('saves.saved', { n: slot }) : (result.error ?? t('saves.writeFailed')),
       result.ok ? 'good' : 'bad',
     );
     refresh();
@@ -57,7 +63,7 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
     const result = await readSlot(slot);
     setBusy(false);
     if (!result?.ok || !result.state) {
-      notify(result?.problem ?? 'That save could not be read.', 'bad');
+      notify(result?.problem ?? t('saves.readFailed'), 'bad');
       return;
     }
     loadState(result.state);
@@ -73,7 +79,7 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
     }
     const result = await readSlot(slot);
     if (!result?.file) {
-      notify('Nothing to export from that slot.', 'bad');
+      notify(t('saves.nothingToExport'), 'bad');
       return;
     }
     downloadText(`lastlight-slot${slot}.json`, exportSave(result.file));
@@ -84,7 +90,7 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
     reader.onload = () => {
       const result = importSave(String(reader.result ?? ''));
       if (!result.ok || !result.state) {
-        notify(result.problem ?? 'That file is not a LAST LIGHT save.', 'bad');
+        notify(result.problem ?? t('saves.notASave'), 'bad');
         return;
       }
       loadState(result.state);
@@ -95,7 +101,7 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
   };
 
   return (
-    <Modal title="Saves" subtitle="Slot 0 is the autosave." onClose={onClose} size="normal">
+    <Modal title={t('saves.title')} subtitle={t('saves.subtitle')} onClose={onClose} size="normal">
       <ul className="slot-list">
         {Array.from({ length: SLOT_COUNT }, (_, slot) => {
           const summary = slots.find((s) => s.slot === slot);
@@ -104,31 +110,40 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
             <li key={slot} className={`slot-row ${summary?.problem ? 'slot-row-bad' : ''}`}>
               <span className="col grow">
                 <strong>
-                  {isAuto ? 'Autosave' : `Slot ${slot}`}
+                  {isAuto ? t('saves.autosave') : t('saves.slot', { n: slot })}
                   {summary ? ` — ${summary.label}` : ''}
                 </strong>
                 {summary ? (
                   <span className="tone-muted mono">
-                    day {summary.preview.day} · {summary.preview.survivors} alive · {summary.preview.scenarioId} ·{' '}
-                    {when(summary.savedAt)}
-                    {summary.preview.ending ? ` · ended (${summary.preview.ending})` : ''}
+                    {t('saves.preview', {
+                      day: summary.preview.day,
+                      survivors: summary.preview.survivors,
+                      scenario: (() => {
+                        const def = SCENARIO_BY_ID[summary.preview.scenarioId];
+                        return def ? scenarioName(def) : summary.preview.scenarioId;
+                      })(),
+                      when: when(summary.savedAt),
+                    })}
+                    {summary.preview.ending
+                      ? t('saves.ended', { ending: summary.preview.ending })
+                      : ''}
                   </span>
                 ) : (
-                  <span className="tone-muted">empty</span>
+                  <span className="tone-muted">{t('saves.empty')}</span>
                 )}
                 {summary?.problem && <span className="tone-bad">{summary.problem}</span>}
               </span>
               <span className="row gap-1">
                 {context === 'game' && !isAuto && (
                   <Button size="sm" disabled={busy || !state} onClick={() => void save(slot)}>
-                    Save
+                    {t('saves.save')}
                   </Button>
                 )}
                 <Button size="sm" disabled={busy || !summary || Boolean(summary.problem)} onClick={() => void load(slot)}>
-                  Load
+                  {t('saves.load')}
                 </Button>
                 <Button size="sm" tone="ghost" disabled={!summary} onClick={() => void doExport(slot)}>
-                  Export
+                  {t('saves.export')}
                 </Button>
                 <Button
                   size="sm"
@@ -138,7 +153,7 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
                     void deleteSlot(slot).then(refresh);
                   }}
                 >
-                  Delete
+                  {t('saves.delete')}
                 </Button>
               </span>
             </li>
@@ -148,7 +163,7 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
 
       <div className="row gap-2 wrap">
         <label className="btn btn-default btn-md">
-          Import a file
+          {t('saves.import')}
           <input
             type="file"
             accept="application/json,.json"
@@ -162,9 +177,14 @@ export function SavesModal({ onClose, context }: { onClose: () => void; context:
         {state && (
           <Button
             tone="ghost"
-            onClick={() => downloadText(`lastlight-day${state.day}.json`, exportSave(buildSaveFile(state, 0, `Day ${state.day}`)))}
+            onClick={() =>
+              downloadText(
+                `lastlight-day${state.day}.json`,
+                exportSave(buildSaveFile(state, 0, `${t('topbar.day')} ${state.day}`)),
+              )
+            }
           >
-            Export the current run
+            {t('saves.exportCurrent')}
           </Button>
         )}
       </div>

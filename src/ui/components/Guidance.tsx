@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useGameStore } from '@store/gameStore';
+import { useT } from '@ui/hooks/useTranslation';
 import { Icon } from './Icon';
 
 /**
@@ -24,6 +25,7 @@ export interface GuidanceNote {
 
 function Card({ id, title, body }: { id: string; title: string; body: ReactNode }) {
   const markSeen = useGameStore((s) => s.markGuidanceSeen);
+  const t = useT();
   return (
     <aside className="guidance" role="note">
       <Icon name="help" size={16} className="guidance-icon" />
@@ -31,8 +33,8 @@ function Card({ id, title, body }: { id: string; title: string; body: ReactNode 
         <strong className="guidance-title">{title}</strong>
         <p className="guidance-body">{body}</p>
       </div>
-      <button type="button" className="guidance-x" onClick={() => markSeen(id)} aria-label={`Dismiss: ${title}`}>
-        Got it
+      <button type="button" className="guidance-x" onClick={() => markSeen(id)} aria-label={t('guidance.dismissLabel', { title })}>
+        {t('guidance.dismiss')}
       </button>
     </aside>
   );

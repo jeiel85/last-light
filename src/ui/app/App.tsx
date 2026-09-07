@@ -8,6 +8,8 @@ import { GameShell } from './GameShell';
 import { RunReport } from './RunReport';
 import { Toast } from '@ui/components/Toast';
 import { closeAudio, setAudioEnabled, setAudioVolume } from '@ui/audio/cues';
+import { localeTag, setLocale } from '@i18n';
+import { useLocale, useT } from '@ui/hooks/useTranslation';
 
 /**
  * The application root.
@@ -23,10 +25,25 @@ export function App() {
   const state = useGameStore((s) => s.state);
   const screen = useUiStore((s) => s.screen);
   const setScreen = useUiStore((s) => s.setScreen);
+  const t = useT();
 
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  /*
+   * The locale lives in settings and is applied to the translation module, which the engine
+   * reads as well — so a language change reaches the log lines the simulation writes, not
+   * only the interface around them.
+   */
+  useEffect(() => {
+    setLocale(settings.locale);
+  }, [settings.locale]);
+
+  const locale = useLocale();
+  useEffect(() => {
+    document.documentElement.lang = localeTag(locale);
+  }, [locale]);
 
   /* Sound is off by default and only ever starts after the player asks for it. */
   useEffect(() => {
@@ -62,7 +79,7 @@ export function App() {
       <div className="app-bg" />
       <div className="ambience" aria-hidden="true" />
       <LiveRegion />
-      {!loaded && <div className="boot">Waking the vault…</div>}
+      {!loaded && <div className="boot">{t('app.loading')}</div>}
       {loaded && view === 'menu' && <MainMenu />}
       {loaded && view === 'setup' && <NewRunSetup />}
       {loaded && view === 'game' && state && <GameShell />}

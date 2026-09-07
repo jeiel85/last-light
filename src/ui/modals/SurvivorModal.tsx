@@ -15,6 +15,19 @@ import { Modal } from '@ui/components/Modal';
 import { Meter } from '@ui/components/Stat';
 import { Portrait } from '@ui/components/Portrait';
 import { Button } from '@ui/components/Button';
+import { useT } from '@ui/hooks/useTranslation';
+import { bondLabel, occupationOf } from '@ui/lib/labels';
+import {
+  backgroundBio,
+  conditionDescription,
+  conditionName,
+  itemName,
+  personalityDescription,
+  personalityName,
+  skillName,
+  traitDescription,
+  traitName,
+} from '@i18n/content';
 
 const SKILLS: SkillId[] = ['engineering', 'medicine', 'science', 'scavenging', 'combat', 'cooking', 'botany', 'negotiation'];
 const SLOTS: EquipmentSlot[] = ['weapon', 'tool', 'armour', 'utility'];
@@ -27,6 +40,7 @@ export function SurvivorModal({ onClose }: { onClose: () => void }) {
   const consumeItem = useGameStore((s) => s.consumeItem);
   const notify = useGameStore((s) => s.notify);
   const id = useUiStore((s) => s.modal.id) ?? useUiStore.getState().selectedSurvivor;
+  const t = useT();
 
   const survivor = state.survivors.find((s) => s.id === id);
 
@@ -48,7 +62,11 @@ export function SurvivorModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal
       title={`${survivor.name} ${survivor.surname}`}
-      subtitle={`${survivor.occupation} · ${survivor.age} · ${survivor.pronouns}`}
+      subtitle={t('survivor.subtitle', {
+        occupation: occupationOf(survivor),
+        age: survivor.age,
+        pronouns: survivor.pronouns,
+      })}
       onClose={onClose}
       size="wide"
     >
@@ -57,19 +75,19 @@ export function SurvivorModal({ onClose }: { onClose: () => void }) {
           <div className="row gap-3">
             <Portrait survivor={survivor} size={72} />
             <div className="col grow gap-1">
-              <Meter label="Health" value={survivor.health} />
-              <Meter label="Morale" value={survivor.morale} />
-              <Meter label="Fatigue" value={survivor.fatigue} invert />
-              <Meter label="Hunger" value={survivor.hunger} invert />
-              <Meter label="Stress" value={survivor.stress} invert />
+              <Meter label={t('meter.health')} value={survivor.health} />
+              <Meter label={t('meter.morale')} value={survivor.morale} />
+              <Meter label={t('meter.fatigue')} value={survivor.fatigue} invert />
+              <Meter label={t('meter.hunger')} value={survivor.hunger} invert />
+              <Meter label={t('meter.stress')} value={survivor.stress} invert />
             </div>
           </div>
 
-          <h3 className="label">Skills</h3>
+          <h3 className="label">{t('survivor.skills')}</h3>
           <ul className="skill-list">
             {SKILLS.map((skill) => (
               <li key={skill}>
-                <span className="grow">{Survivors.skillLabel(skill)}</span>
+                <span className="grow">{skillName(skill, Survivors.skillLabel(skill))}</span>
                 <span className="skill-pips" aria-hidden="true">
                   {Array.from({ length: 10 }, (_, i) => (
                     <span key={i} className={i < survivor.skills[skill] ? 'pip pip-on' : 'pip'} />
@@ -80,14 +98,14 @@ export function SurvivorModal({ onClose }: { onClose: () => void }) {
             ))}
           </ul>
 
-          <h3 className="label">Traits</h3>
+          <h3 className="label">{t('survivor.traits')}</h3>
           <ul className="trait-list">
             {survivor.traits.map((traitId) => {
               const trait = TRAIT_BY_ID[traitId];
               return (
                 <li key={traitId}>
-                  <strong>{trait?.name ?? traitId}</strong>
-                  <span className="tone-muted"> {trait?.description}</span>
+                  <strong>{trait ? traitName(trait) : traitId}</strong>
+                  <span className="tone-muted"> {trait ? traitDescription(trait) : null}</span>
                 </li>
               );
             })}
@@ -95,39 +113,42 @@ export function SurvivorModal({ onClose }: { onClose: () => void }) {
         </section>
 
         <section className="col gap-3">
-          <h3 className="label">Background</h3>
-          <p className="prose">{background?.bio}</p>
+          <h3 className="label">{t('survivor.background')}</h3>
+          <p className="prose">{background ? backgroundBio(background) : null}</p>
           {personality && (
             <p className="hint">
-              {personality.name} — {personality.description}
+              {personalityName(personality)} — {personalityDescription(personality)}
             </p>
           )}
 
-          <h3 className="label">Equipment</h3>
+          <h3 className="label">{t('survivor.equipment')}</h3>
           <ul className="equip-list">
             {SLOTS.map((slot) => {
               const equipped = survivor.equipment[slot];
               const def = equipped ? ITEM_BY_ID[equipped] : undefined;
               return (
                 <li key={slot}>
-                  <span className="label grow">{slot}</span>
+                  <span className="label grow">{t(`survivor.slot.${slot}`)}</span>
                   <select
                     className="input input-sm"
                     value={equipped ?? ''}
                     onChange={(e) => {
                       const value = e.target.value;
                       const result = value ? equip(survivor.id, value) : unequip(survivor.id, slot);
-                      if (!result.ok) notify(result.message ?? 'That cannot be equipped.', 'bad');
+                      if (!result.ok) notify(result.message ?? t('survivor.cannotEquip'), 'bad');
                     }}
-                    aria-label={`${slot} for ${survivor.name}`}
+                    aria-label={t('survivor.slotFor', {
+                      slot: t(`survivor.slot.${slot}`),
+                      name: survivor.name,
+                    })}
                   >
-                    <option value="">— empty —</option>
-                    {def && <option value={def.id}>{def.name}</option>}
+                    <option value="">{t('survivor.slotEmpty')}</option>
+                    {def && <option value={def.id}>{itemName(def)}</option>}
                     {equippable(slot)
                       .filter((item) => item.id !== equipped)
                       .map((item) => (
                         <option key={item.id} value={item.id}>
-                          {item.name}
+                          {itemName(item)}
                         </option>
                       ))}
                   </select>
@@ -138,15 +159,16 @@ export function SurvivorModal({ onClose }: { onClose: () => void }) {
 
           {survivor.conditions.length > 0 && (
             <>
-              <h3 className="label">Conditions</h3>
+              <h3 className="label">{t('survivor.conditions')}</h3>
               <ul className="cond-list">
                 {survivor.conditions.map((condition) => {
                   const def = CONDITION_BY_ID[condition.id];
                   return (
                     <li key={condition.id} className={condition.severity > 55 ? 'tone-bad' : 'tone-warn'}>
-                      <strong>{def?.name ?? condition.id}</strong> — severity {Math.round(condition.severity)}
-                      {condition.treated ? ' · being treated' : ''}
-                      <span className="tone-muted"> {def?.description}</span>
+                      <strong>{def ? conditionName(def) : condition.id}</strong>
+                      {t('survivor.severity', { value: Math.round(condition.severity) })}
+                      {condition.treated ? t('survivor.beingTreated') : ''}
+                      <span className="tone-muted"> {def ? conditionDescription(def) : null}</span>
                     </li>
                   );
                 })}
@@ -156,19 +178,19 @@ export function SurvivorModal({ onClose }: { onClose: () => void }) {
                 onClick={() => {
                   const kit = state.inventory.find((entry) => ITEM_BY_ID[entry.itemId]?.tags.includes('medical'));
                   if (!kit) {
-                    notify('No medical supplies in stores.', 'bad');
+                    notify(t('survivor.noMedical'), 'bad');
                     return;
                   }
                   const result = consumeItem(kit.itemId, survivor.id);
-                  notify(result.message ?? 'Treated.', result.ok ? 'good' : 'bad');
+                  notify(result.message ?? t('survivor.treated'), result.ok ? 'good' : 'bad');
                 }}
               >
-                Treat with the best kit available
+                {t('survivor.treat')}
               </Button>
             </>
           )}
 
-          <h3 className="label">Relationships</h3>
+          <h3 className="label">{t('survivor.relationships')}</h3>
           <ul className="rel-list">
             {relationships.map((rel) => {
               const other = state.survivors.find((s) => s.id === rel.other.id);
@@ -177,26 +199,30 @@ export function SurvivorModal({ onClose }: { onClose: () => void }) {
                 <li key={rel.other.id}>
                   <span className="grow">{other.name}</span>
                   <span className={rel.value > 20 ? 'tone-good' : rel.value < -20 ? 'tone-bad' : 'tone-muted'}>
-                    {Relationships.bucketLabel(Relationships.bucketOf(rel.value))}
+                    {bondLabel(Relationships.bucketOf(rel.value))}
                   </span>
                   <span className="num">{Math.round(rel.value)}</span>
                 </li>
               );
             })}
-            {relationships.length === 0 && <li className="empty-state">Nobody else is left.</li>}
+            {relationships.length === 0 && (
+              <li className="empty-state">{t('survivor.nobodyElse')}</li>
+            )}
           </ul>
 
-          <h3 className="label">History</h3>
+          <h3 className="label">{t('survivor.history')}</h3>
           <ol className="history-list">
             {survivor.history
               .slice(-14)
               .reverse()
               .map((entry, i) => (
                 <li key={i} className={`tone-${entry.tone === 'neutral' ? 'muted' : entry.tone}`}>
-                  <span className="mono">d{entry.day}</span> {entry.text}
+                  <span className="mono">{t('common.dayShort', { day: entry.day })}</span> {entry.text}
                 </li>
               ))}
-            {survivor.history.length === 0 && <li className="empty-state">Nothing has happened to them yet.</li>}
+            {survivor.history.length === 0 && (
+              <li className="empty-state">{t('survivor.noHistory')}</li>
+            )}
           </ol>
         </section>
       </div>
