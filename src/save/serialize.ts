@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, isLocaleId } from '@i18n';
 import type { GameState, MetaProfile } from '@engine';
 import { createMetaProfile, META_VERSION } from '@engine';
 import { dbDelete, dbGet, dbKeys, dbSet, STORE_META, STORE_SAVES } from './db';
@@ -158,6 +159,12 @@ export async function readMeta(): Promise<{ profile: MetaProfile; settings: Sett
   }
   const profile: MetaProfile = { ...createMetaProfile(), ...raw.profile, version: META_VERSION };
   const settings: Settings = { ...DEFAULT_SETTINGS, ...raw.settings };
+  /*
+   * A settings file written by a build that shipped a language this one does not have would
+   * otherwise leave the selector showing nothing and every lookup falling through. English
+   * is the source of truth, so an unknown id resolves to it rather than to a blank.
+   */
+  if (!isLocaleId(settings.locale)) settings.locale = DEFAULT_LOCALE;
   return { profile, settings };
 }
 

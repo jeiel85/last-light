@@ -15,6 +15,7 @@ import {
 } from '@i18n';
 import { coverageFor, expectedContentKeys } from '@i18n/coverage';
 import { resolveJosa } from '@i18n/locales/ko/josa';
+import { DEFAULT_SETTINGS } from '@save/schema';
 import { RESOURCES } from '@engine';
 import { resourceName } from '@i18n/content';
 
@@ -158,6 +159,24 @@ describe('Korean particle selection', () => {
       /이\(가\)|을\(를\)|은\(는\)/.test(t(key as never)),
     );
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('settings carry the language', () => {
+  it('defaults to English, so an existing player is not moved to another language', () => {
+    expect(DEFAULT_SETTINGS.locale).toBe('en');
+  });
+
+  it('records prose in the language it was written in, which is a record not a bug', () => {
+    /*
+     * A log line, a survivor's history, and an ending's stored summary are written into the
+     * save as text at the moment they happen. Switching language afterwards does not rewrite
+     * history — the interface around it changes, and what was said stays as it was said.
+     */
+    setLocale('ko');
+    const korean = t('engine.history.arrived');
+    setLocale('en');
+    expect(korean).not.toBe(t('engine.history.arrived'));
   });
 });
 
