@@ -467,6 +467,7 @@ export const KO_MESSAGES: MessageBundle = {
   'settings.title': '설정',
   'settings.language': '언어',
   'settings.languageHint': '아직 번역되지 않은 부분은 영어로 표시된다.',
+  'settings.languageFailed': '해당 언어를 불러오지 못했다. 연결을 확인하고 다시 시도한다.',
   'settings.motion': '움직임',
   'settings.motionHint': '주변 깜빡임, 주사선, 전환 효과를 제거한다.',
   'settings.motion.full': '전체',

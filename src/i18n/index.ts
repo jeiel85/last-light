@@ -102,11 +102,15 @@ export function loadLocale(id: LocaleId): Promise<LocaleBundle | null> {
  *
  * The switch is applied only once the text is in hand, so nothing renders half-translated,
  * and a load that fails leaves the previous language in place rather than emptying the
- * screen. Awaiting it is optional — `bootstrap` does, so the first paint is already in the
- * player's language; a mid-session switch does not need to.
+ * screen.
+ *
+ * Resolves with the locale that is *actually* in effect, which is how a caller learns the
+ * load failed. That matters because the language is a saved setting: silently keeping the
+ * old text while the setting says otherwise leaves the picker disagreeing with the screen,
+ * and re-choosing the language the setting already holds fires no change to retry with.
  */
-export function setLocale(id: LocaleId): Promise<void> {
-  if (!isLocaleId(id)) return Promise.resolve();
+export function setLocale(id: LocaleId): Promise<LocaleId> {
+  if (!isLocaleId(id)) return Promise.resolve(current);
   /*
    * The generation is bumped before the early return, not after it. Choosing the language
    * that is already current is still a decision, and it has to cancel a switch that has
@@ -115,13 +119,14 @@ export function setLocale(id: LocaleId): Promise<void> {
    * screen in a language the settings disagree with, and no effect left to run to fix it.
    */
   const token = (generation += 1);
-  if (id === current) return Promise.resolve();
+  if (id === current) return Promise.resolve(current);
   return loadLocale(id).then((bundle) => {
     /* A slower earlier switch must not land on top of a later one the player made. */
-    if (token !== generation) return;
-    if (bundle === null && LOADERS[id]) return;
+    if (token !== generation) return current;
+    if (bundle === null && LOADERS[id]) return current;
     current = id;
     for (const listener of listeners) listener();
+    return current;
   });
 }
 

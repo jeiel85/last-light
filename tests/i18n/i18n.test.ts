@@ -168,6 +168,17 @@ describe('locales load on demand', () => {
     expect(getLocale()).toBe('en');
   });
 
+  it('reports the locale that is actually in effect, not the one that was asked for', async () => {
+    /*
+     * The caller cannot tell a failed load from a successful one by watching `getLocale`,
+     * because a failure deliberately leaves the previous language up. The resolved value is
+     * how `App` knows to put the saved setting back in step with what is on screen.
+     */
+    expect(await setLocale('ko')).toBe('ko');
+    expect(await setLocale('xx' as never)).toBe('ko');
+    expect(await setLocale('en')).toBe('en');
+  });
+
   it('gives every locale a loader, so a new language cannot ship as silent English', async () => {
     for (const locale of LOCALES) {
       const bundle = await loadLocale(locale.id);
