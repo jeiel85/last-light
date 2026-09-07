@@ -57,3 +57,11 @@ The alternative — importing every locale statically — is simpler and was wha
 shipped. It put ~270 kB of Korean into the first load of every player, and the next language
 would add as much again. The cost of loading on demand is paid once, in the shape of two
 async boundaries; the cost of not doing it grows with every language added.
+
+**What this does and does not buy.** It takes the locale off the critical path: the app chunk
+drops from 610 kB to 294 kB and Korean is fetched only by a player who reads Korean. It does
+*not* mean the bytes are never transferred. The service worker's precache glob is
+`**/*.{js,css,html,svg,png,woff2}`, so an installed PWA still downloads every locale chunk in
+the background, after load. That is deliberate: a player who installs the game and then goes
+offline should still be able to switch language, and a language switch that silently fails
+offline is worse than a background download that already happens off the critical path.
