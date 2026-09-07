@@ -1,0 +1,146 @@
+/*
+ * LAST LIGHT — design tokens.
+ *
+ * The visual brief is an abandoned command centre that is still powered: oxidised steel,
+ * amber and phosphor readouts, thin rules, monospaced numerics. Restraint is the point —
+ * motion exists only where it carries information.
+ *
+ * Everything here is a custom property so the accessibility settings (reduced motion,
+ * text scale, high contrast) can retune the whole interface from one place.
+ */
+
+:root {
+  /* ---- surfaces */
+  --void: #07090a;
+  --deep: #0b0e10;
+  --panel: #14181a;
+  --panel-2: #191e21;
+  --raised: #202629;
+  --raised-2: #272e32;
+  --bezel: #2e373b;
+  --rule: #232b2f;
+  --rule-strong: #364146;
+
+  /* ---- ink */
+  --ink: #e6ecef;
+  --ink-2: #b6c1c6;
+  --ink-3: #8a9499;
+  --ink-4: #616b70;
+  --ink-inverse: #0b0e10;
+
+  /* ---- signal colours */
+  --amber: #d9b25c;
+  --amber-dim: #8a7137;
+  --phosphor: #5fd0a0;
+  --phosphor-dim: #35785c;
+  --alarm: #e07070;
+  --alarm-dim: #8a4444;
+  --ice: #6fb4dd;
+  --ice-dim: #3d6a84;
+  --violet: #a98ad0;
+  --rust: #c2794f;
+
+  /* ---- resource hues (mirrors engine RESOURCES) */
+  --res-water: #5aa9d6;
+  --res-food: #c8a24a;
+  --res-power: #e0c65a;
+  --res-medicine: #d97f8c;
+  --res-components: #9aa6ac;
+  --res-fuel: #c07a3e;
+  --res-ammo: #b08c6a;
+  --res-hope: #5fd0a0;
+
+  /* ---- semantic */
+  --good: var(--phosphor);
+  --bad: var(--alarm);
+  --warn: var(--amber);
+  --info: var(--ice);
+
+  /* ---- typography */
+  --font-sans: 'Inter var', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Mono', ui-monospace, 'Roboto Mono',
+    Menlo, Consolas, monospace;
+
+  --scale: 1;
+  --fs-xs: calc(10.5px * var(--scale));
+  --fs-sm: calc(12px * var(--scale));
+  --fs-base: calc(13.5px * var(--scale));
+  --fs-md: calc(15px * var(--scale));
+  --fs-lg: calc(18px * var(--scale));
+  --fs-xl: calc(23px * var(--scale));
+  --fs-2xl: calc(30px * var(--scale));
+  --fs-3xl: calc(42px * var(--scale));
+
+  --lh-tight: 1.2;
+  --lh-normal: 1.55;
+  --lh-loose: 1.7;
+
+  --tracking-wide: 0.09em;
+  --tracking-wider: 0.17em;
+
+  /* ---- geometry */
+  --r-sm: 2px;
+  --r-md: 3px;
+  --r-lg: 5px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 22px;
+  --sp-6: 30px;
+  --sp-7: 42px;
+
+  /* ---- effects */
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.035) inset, 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-raised: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 2px 6px rgba(0, 0, 0, 0.4);
+  --glow-amber: 0 0 12px rgba(217, 178, 92, 0.28);
+  --glow-phosphor: 0 0 12px rgba(95, 208, 160, 0.24);
+  --glow-alarm: 0 0 14px rgba(224, 112, 112, 0.3);
+
+  --dur-fast: 110ms;
+  --dur: 190ms;
+  --dur-slow: 380ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --scanline-opacity: 0.045;
+  --noise-opacity: 0.035;
+  --flicker: 1;
+
+  --header-h: 52px;
+  --rail-w: 232px;
+  --log-w: 300px;
+  --tabbar-h: 58px;
+}
+
+/* Reduced motion strips ambience and transitions but keeps every affordance. */
+:root[data-motion='reduced'] {
+  --dur-fast: 0ms;
+  --dur: 0ms;
+  --dur-slow: 0ms;
+  --scanline-opacity: 0;
+  --noise-opacity: 0;
+  --flicker: 0;
+}
+
+/* High contrast raises every ink step and hardens the rules. */
+:root[data-contrast='high'] {
+  --ink: #ffffff;
+  --ink-2: #dfe7ea;
+  --ink-3: #b4c0c5;
+  --ink-4: #8d979c;
+  --rule: #3d474c;
+  --rule-strong: #5c686e;
+  --panel: #0f1416;
+  --raised: #1d2427;
+  --amber: #f0c96f;
+  --phosphor: #7ee9b8;
+  --alarm: #ff8d8d;
+  --ice: #8bc9ee;
+  --scanline-opacity: 0;
+  --noise-opacity: 0;
+}
+
+:root[data-scale='small'] { --scale: 0.9; }
+:root[data-scale='large'] { --scale: 1.12; }
+:root[data-scale='xlarge'] { --scale: 1.26; }

@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "types": ["node"],
+    "paths": {
+      "@engine/*": ["./src/engine/*"],
+      "@engine": ["./src/engine/index.ts"]
+    }
+  },
+  "include": ["vite.config.ts", "playwright.config.ts", "scripts", "vitest.config.ts"],
+  "exclude": ["scripts/dev"]
+}
