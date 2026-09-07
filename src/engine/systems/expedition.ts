@@ -1,6 +1,10 @@
 import { t } from '../../i18n';
 import {
   conditionName,
+  encounterChoiceText,
+  encounterOutcomeText,
+  encounterText,
+  encounterTitle,
   enemyName,
   itemName,
   locationNameForm,
@@ -505,10 +509,14 @@ export function resolveBeat(state: GameState, choiceId: string): BeatResolution 
     | { skill: NonNullable<EncounterChoice['check']>['skill']; value: number; target: number; success: boolean; actor: string }
     | undefined;
 
+  /* Which branch produced the outcome, so its prose can be looked up by the same path. */
+  let branch: 'outcome' | 'onSuccess' | 'onFailure' = 'outcome';
+
   if (choice.check) {
     const actor = pickActor(rng, members, choice.check);
     if (!actor) {
       outcome = choice.onFailure ?? choice.outcome;
+      branch = choice.onFailure ? 'onFailure' : 'outcome';
     } else {
       const skillValue = actor.skills[choice.check.skill];
       const equipmentBonus = equipmentSkillBonus(expedition.loadout.items, choice.check.skill);
@@ -523,23 +531,34 @@ export function resolveBeat(state: GameState, choiceId: string): BeatResolution 
         actor: actor.name,
       };
       outcome = success ? choice.onSuccess : choice.onFailure;
-      if (!outcome) outcome = choice.outcome;
+      branch = success ? 'onSuccess' : 'onFailure';
+      if (!outcome) {
+        outcome = choice.outcome;
+        branch = 'outcome';
+      }
     }
   } else {
     outcome = choice.outcome ?? choice.onSuccess;
+    branch = choice.outcome ? 'outcome' : 'onSuccess';
   }
 
-  if (!outcome) outcome = { text: 'Nothing comes of it.', tone: 'neutral' };
+  const fallbackOutcome = !outcome;
+  if (!outcome) outcome = { text: t('engine.exp.nothingComes'), tone: 'neutral' };
 
   const summary = applyOutcome(state, expedition, rng, outcome, members);
 
   expedition.log.push({
     encounterId: presentation.encounter.id,
-    title: presentation.encounter.title,
-    text: presentation.encounter.text,
+    title: encounterTitle(presentation.encounter),
+    text: encounterText(presentation.encounter),
     choiceId: choice.id,
-    choiceLabel: choice.label,
-    outcomeText: [outcome.text, ...summary].join(' '),
+    choiceLabel: encounterChoiceText(presentation.encounter, choice).label,
+    outcomeText: [
+      fallbackOutcome
+        ? outcome.text
+        : encounterOutcomeText(presentation.encounter, choice, branch, outcome),
+      ...summary,
+    ].join(' '),
     tone: outcome.tone,
     ...(rollInfo ? { roll: rollInfo } : {}),
   });

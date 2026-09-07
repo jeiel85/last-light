@@ -7,6 +7,9 @@ import { KO_EVENTS_CORE } from './content/events_core';
 import { KO_EVENTS_SOCIAL } from './content/events_social';
 import { KO_EVENTS_VAULT } from './content/events_vault';
 import { KO_EVENTS_SIGNAL } from './content/events_signal';
+import { KO_EVENTS_PEOPLE } from './content/events_people';
+import { KO_EVENTS_MERIDIAN } from './content/events_meridian';
+import { KO_EVENTS_CHAIN } from './content/events_chain';
 import { KO_FACILITIES } from './content/facilities';
 import { KO_ITEMS } from './content/items';
 import { KO_LOCATIONS } from './content/locations';
@@ -44,5 +47,8 @@ export const KO_BUNDLE: LocaleBundle = {
     ...KO_EVENTS_SOCIAL,
     ...KO_EVENTS_VAULT,
     ...KO_EVENTS_SIGNAL,
+    ...KO_EVENTS_PEOPLE,
+    ...KO_EVENTS_MERIDIAN,
+    ...KO_EVENTS_CHAIN,
   },
 };
