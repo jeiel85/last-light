@@ -3,6 +3,10 @@ import { KO_MESSAGES } from './messages';
 import { resolveJosa } from './josa';
 import { KO_CORE } from './content/core';
 import { KO_ENCOUNTERS } from './content/encounters';
+import { KO_EVENTS_CORE } from './content/events_core';
+import { KO_EVENTS_SOCIAL } from './content/events_social';
+import { KO_EVENTS_VAULT } from './content/events_vault';
+import { KO_EVENTS_SIGNAL } from './content/events_signal';
 import { KO_FACILITIES } from './content/facilities';
 import { KO_ITEMS } from './content/items';
 import { KO_LOCATIONS } from './content/locations';
@@ -36,5 +40,9 @@ export const KO_BUNDLE: LocaleBundle = {
     ...KO_PEOPLE,
     ...KO_LORE,
     ...KO_ENCOUNTERS,
+    ...KO_EVENTS_CORE,
+    ...KO_EVENTS_SOCIAL,
+    ...KO_EVENTS_VAULT,
+    ...KO_EVENTS_SIGNAL,
   },
 };
