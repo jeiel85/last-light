@@ -1,6 +1,12 @@
 import type { LocaleBundle } from '../../types';
 import { KO_MESSAGES } from './messages';
 import { KO_CORE } from './content/core';
+import { KO_FACILITIES } from './content/facilities';
+import { KO_ITEMS } from './content/items';
+import { KO_LOCATIONS } from './content/locations';
+import { KO_RESEARCH } from './content/research';
+import { KO_RUN } from './content/run';
+import { KO_TRAITS } from './content/traits';
 
 /**
  * 한국어 번역 묶음.
@@ -16,5 +22,11 @@ export const KO_BUNDLE: LocaleBundle = {
   messages: KO_MESSAGES,
   content: {
     ...KO_CORE,
+    ...KO_FACILITIES,
+    ...KO_ITEMS,
+    ...KO_TRAITS,
+    ...KO_RESEARCH,
+    ...KO_LOCATIONS,
+    ...KO_RUN,
   },
 };
