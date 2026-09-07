@@ -1,3 +1,6 @@
+import { t } from '../../i18n';
+import { facilityName as facilityLabel, itemName, resourceName } from '../../i18n/content';
+import { RESOURCES } from '../data/resources';
 import type { CraftJob, GameState, RecipeDef, RecipeId, ResourceId } from '../model/types';
 import { BreakdownBuilder, type Breakdown } from '../core/breakdown';
 import { clamp } from '../core/math';
@@ -22,25 +25,60 @@ export interface RecipeAvailability {
   recipe: RecipeDef;
   ok: boolean;
   reason?: string;
+  /**
+   * True when the only thing standing in the way is an unfinished research project.
+   *
+   * The workshop's "hide un-researched" filter needs to know this, and matching on the
+   * reason string would have made that filter break the moment the reason was translated.
+   */
+  researchLocked?: boolean;
   /** Estimated days at the current staffing level. */
   estimatedDays: number | null;
 }
 
+/** The translated name of an item definition, by id. */
+function itemLabel(id: string): string {
+  const def = ITEM_BY_ID[id];
+  return def ? itemName(def) : id;
+}
+
 export function recipeAvailability(state: GameState, recipe: RecipeDef): RecipeAvailability {
   const facility = findFacility(state, recipe.facility);
-  const facilityName = FACILITY_BY_ID[recipe.facility]?.name ?? recipe.facility;
+  const facilityDef = FACILITY_BY_ID[recipe.facility];
+  const facilityTitle = facilityDef ? facilityLabel(facilityDef) : recipe.facility;
 
   if (recipe.requiresResearch && !state.research.completed.includes(recipe.requiresResearch)) {
-    return { recipe, ok: false, reason: 'Requires research', estimatedDays: null };
+    return {
+      recipe,
+      ok: false,
+      reason: t('engine.fac.requiresResearch'),
+      researchLocked: true,
+      estimatedDays: null,
+    };
   }
   if (!facility || facility.status === 'building') {
-    return { recipe, ok: false, reason: `Requires ${facilityName}`, estimatedDays: null };
+    return {
+      recipe,
+      ok: false,
+      reason: t('engine.craft.requiresFacility', { name: facilityTitle }),
+      estimatedDays: null,
+    };
   }
   if (facility.level < recipe.minLevel) {
-    return { recipe, ok: false, reason: `Requires ${facilityName} level ${recipe.minLevel}`, estimatedDays: null };
+    return {
+      recipe,
+      ok: false,
+      reason: t('engine.craft.requiresLevel', { name: facilityTitle, level: recipe.minLevel }),
+      estimatedDays: null,
+    };
   }
   if (!isOperational(facility)) {
-    return { recipe, ok: false, reason: `${facilityName} is offline`, estimatedDays: null };
+    return {
+      recipe,
+      ok: false,
+      reason: t('engine.craft.offline', { name: facilityTitle }),
+      estimatedDays: null,
+    };
   }
   const affordability = canAfford(state.resources, recipe.cost);
   if (!affordability.ok) {
@@ -48,7 +86,10 @@ export function recipeAvailability(state: GameState, recipe: RecipeDef): RecipeA
     return {
       recipe,
       ok: false,
-      reason: `Needs ${Math.ceil(first.needed)} ${first.resource}`,
+      reason: t('engine.fac.needs', {
+        amount: Math.ceil(first.needed),
+        resource: resourceName(RESOURCES[first.resource]).toLowerCase(),
+      }),
       estimatedDays: null,
     };
   }
@@ -57,7 +98,10 @@ export function recipeAvailability(state: GameState, recipe: RecipeDef): RecipeA
       return {
         recipe,
         ok: false,
-        reason: `Needs ${entry.count}× ${ITEM_BY_ID[entry.itemId]?.name ?? entry.itemId}`,
+        reason: t('engine.craft.needsItem', {
+          count: entry.count,
+          name: itemLabel(entry.itemId),
+        }),
         estimatedDays: null,
       };
     }
@@ -76,25 +120,33 @@ export function craftingRate(state: GameState, recipe: RecipeDef): Breakdown {
   const b = new BreakdownBuilder();
   const facility = findFacility(state, recipe.facility);
   if (!facility || !isOperational(facility)) {
-    b.base('No operational facility', 0);
+    b.base(t('engine.craft.noFacility'), 0);
     return b.build({ min: 0 });
   }
   const def = FACILITY_BY_ID[recipe.facility]!;
   const staff = staffOf(state, facility);
   if (staff.length === 0) {
-    b.base('Unstaffed', 0);
-    b.note(`Nobody is working in the ${def.name}.`, undefined, `Assign a survivor to the ${def.name}.`);
+    b.base(t('engine.unstaffed'), 0);
+    b.note(
+      t('engine.craft.unstaffedNote', { name: facilityLabel(def) }),
+      undefined,
+      t('engine.craft.unstaffedFix', { name: facilityLabel(def) }),
+    );
     return b.build({ min: 0 });
   }
-  b.base(`${def.name} crew`, staffPower(state, facility) * 8, `${staff.length} assigned.`);
-  if (facility.defId === 'workshop' && facility.level >= 3) b.mul('Level 3 tooling', 2.0);
+  b.base(
+    t('engine.craft.crew', { name: facilityLabel(def) }),
+    staffPower(state, facility) * 8,
+    t('engine.craft.crewNote', { count: staff.length }),
+  );
+  if (facility.defId === 'workshop' && facility.level >= 3) b.mul(t('engine.craft.tooling'), 2.0);
   return b.build({ min: 0, round: 1 });
 }
 
 export function queueCraft(state: GameState, recipeId: RecipeId): { ok: boolean; reason?: string } {
   const recipe = RECIPE_BY_ID[recipeId];
-  if (!recipe) return { ok: false, reason: 'Unknown recipe' };
-  if (state.craftQueue.length >= 6) return { ok: false, reason: 'The queue is full' };
+  if (!recipe) return { ok: false, reason: t('engine.craft.unknownRecipe') };
+  if (state.craftQueue.length >= 6) return { ok: false, reason: t('engine.craft.queueFull') };
   const availability = recipeAvailability(state, recipe);
   if (!availability.ok) return { ok: false, reason: availability.reason };
 
@@ -119,7 +171,7 @@ export function queueCraft(state: GameState, recipeId: RecipeId): { ok: boolean;
     required: recipe.labour,
     startedDay: state.day,
   });
-  return { ok: true, ...(free ? { reason: 'Improvised from scrap — no materials used.' } : {}) };
+  return { ok: true, ...(free ? { reason: t('engine.craft.improvised') } : {}) };
 }
 
 export function cancelCraft(state: GameState, jobId: string): boolean {
@@ -163,7 +215,9 @@ export function progressCrafting(state: GameState): string[] {
       addItem(state, recipe.itemId, recipe.yield);
       state.stats.itemsCrafted += recipe.yield;
       notes.push(
-        `${ITEM_BY_ID[recipe.itemId]?.name ?? recipe.itemId}${recipe.yield > 1 ? ` ×${recipe.yield}` : ''} finished.`,
+        t('engine.craft.finished', {
+          name: `${itemLabel(recipe.itemId)}${recipe.yield > 1 ? ` ×${recipe.yield}` : ''}`,
+        }),
       );
       state.craftQueue = state.craftQueue.filter((j) => j.id !== job.id);
     }

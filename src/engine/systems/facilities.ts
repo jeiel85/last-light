@@ -1,3 +1,6 @@
+import { t } from '../../i18n';
+import { facilityName as facilityLabel, resourceName } from '../../i18n/content';
+import { RESOURCES } from '../data/resources';
 import type {
   BuildSlot,
   FacilityDef,
@@ -16,6 +19,20 @@ import { FACILITIES, FACILITY_BY_ID } from '../data/facilities';
 import { livingSurvivors, workEfficiency } from './survivors';
 
 /* ------------------------------------------------------------------- queries */
+
+/** The translated name of a facility definition, by id. */
+function labelOf(defId: string): string {
+  const def = FACILITY_BY_ID[defId];
+  return def ? facilityLabel(def) : defId;
+}
+
+/** "Needs 12 components" — the first thing the vault cannot pay for. */
+function shortfallReason(first: { needed: number; resource: ResourceId }): string {
+  return t('engine.fac.needs', {
+    amount: Math.ceil(first.needed),
+    resource: resourceName(RESOURCES[first.resource]).toLowerCase(),
+  });
+}
 
 export function facilityDef(instance: FacilityInstance): FacilityDef {
   const def = FACILITY_BY_ID[instance.defId];
@@ -132,7 +149,7 @@ export interface BuildCheck {
 
 export function canBuild(state: GameState, defId: FacilityId, slotId?: string): BuildCheck {
   const def = FACILITY_BY_ID[defId];
-  if (!def) return { ok: false, reason: 'Unknown facility' };
+  if (!def) return { ok: false, reason: t('engine.fac.unknown') };
   /*
    * Research is the usual key, but not the only one: an event that physically opens a space
    * — cutting through the sub-level bulkhead, say — should unlock what is behind it without
@@ -140,23 +157,23 @@ export function canBuild(state: GameState, defId: FacilityId, slotId?: string): 
    */
   const unlockedByEvent = Boolean(state.flags[`unlock:${defId}`]);
   if (def.requiresResearch && !state.research.completed.includes(def.requiresResearch) && !unlockedByEvent) {
-    return { ok: false, reason: 'Requires research' };
+    return { ok: false, reason: t('engine.fac.requiresResearch') };
   }
   const banned = (state.flags[`banned:${defId}`] as number | undefined) ?? 0;
-  if (banned > state.day) return { ok: false, reason: `Unavailable until day ${banned}` };
-  if (def.unique && findFacility(state, defId)) return { ok: false, reason: 'Already built' };
+  if (banned > state.day) return { ok: false, reason: t('engine.fac.bannedUntil', { day: banned }) };
+  if (def.unique && findFacility(state, defId)) return { ok: false, reason: t('engine.fac.alreadyBuilt') };
 
   const slots = availableSlots(state, def);
-  if (slots.length === 0) return { ok: false, reason: 'No free slot on a permitted deck' };
+  if (slots.length === 0) return { ok: false, reason: t('engine.fac.noSlot') };
   if (slotId && !slots.some((s) => s.id === slotId)) {
-    return { ok: false, reason: 'That slot is not available' };
+    return { ok: false, reason: t('engine.fac.slotUnavailable') };
   }
 
   const cost = def.levels[0].buildCost;
   const check = canAfford(state.resources, cost);
   if (!check.ok) {
     const first = check.missing[0]!;
-    return { ok: false, reason: `Needs ${Math.ceil(first.needed)} ${first.resource}`, cost };
+    return { ok: false, reason: shortfallReason(first), cost };
   }
   return { ok: true, cost, labour: def.levels[0].labour };
 }
@@ -186,17 +203,17 @@ export function buildFacility(state: GameState, defId: FacilityId, slotId: strin
 
 export function canUpgrade(state: GameState, facilityId: string): BuildCheck {
   const facility = state.facilities.find((f) => f.id === facilityId);
-  if (!facility) return { ok: false, reason: 'Not found' };
-  if (facility.status === 'building') return { ok: false, reason: 'Still under construction' };
-  if (facility.upgradingTo) return { ok: false, reason: 'Upgrade already in progress' };
-  if (facility.level >= 3) return { ok: false, reason: 'Already at maximum level' };
+  if (!facility) return { ok: false, reason: t('engine.fac.notFound') };
+  if (facility.status === 'building') return { ok: false, reason: t('engine.fac.stillBuilding') };
+  if (facility.upgradingTo) return { ok: false, reason: t('engine.fac.upgradeInProgress') };
+  if (facility.level >= 3) return { ok: false, reason: t('engine.fac.maxLevel') };
   const def = facilityDef(facility);
   const next = def.levels[facility.level];
-  if (!next) return { ok: false, reason: 'Already at maximum level' };
+  if (!next) return { ok: false, reason: t('engine.fac.maxLevel') };
   const check = canAfford(state.resources, next.buildCost);
   if (!check.ok) {
     const first = check.missing[0]!;
-    return { ok: false, reason: `Needs ${Math.ceil(first.needed)} ${first.resource}`, cost: next.buildCost };
+    return { ok: false, reason: shortfallReason(first), cost: next.buildCost };
   }
   return { ok: true, cost: next.buildCost, labour: next.labour };
 }
@@ -343,26 +360,43 @@ function resolvePower(state: GameState): { report: PowerReport; brownedOut: Set<
 
   if (reactor && reactor.status !== 'building') {
     const base = BALANCE.power.reactorOutput[reactor.level] ?? 0;
-    capacity.base(`Reactor Stub L${reactor.level}`, base);
+    capacity.base(
+      t('engine.facilityLevel', { name: labelOf('reactor'), level: reactor.level }),
+      base,
+    );
     const conditionFactor = clamp(0.6 + (reactor.condition / 100) * 0.4, 0.6, 1);
-    capacity.mul('Reactor condition', conditionFactor, `Condition ${Math.round(reactor.condition)}%.`,
-      reactor.condition < 60 ? 'Assign an engineer to repair the reactor.' : undefined);
+    capacity.mul(
+      t('engine.pow.reactorCondition'),
+      conditionFactor,
+      t('engine.conditionPct', { value: Math.round(reactor.condition) }),
+      reactor.condition < 60 ? t('engine.pow.reactorRepairFix') : undefined,
+    );
     const staff = staffOf(state, reactor);
     if (staff.length === 0) {
-      capacity.mul('Unstaffed', 0.85, 'Nobody is tending the reactor.', 'Assign an engineer to the Reactor Stub.');
+      capacity.mul(
+        t('engine.unstaffed'),
+        0.85,
+        t('engine.pow.reactorUnstaffed'),
+        t('engine.pow.reactorUnstaffedFix'),
+      );
     } else {
-      capacity.mul('Staffed', clamp(1 + staffPower(state, reactor) * 0.12, 1, 1.35));
+      capacity.mul(t('engine.staffed'), clamp(1 + staffPower(state, reactor) * 0.12, 1, 1.35));
     }
     if (state.resources.fuel <= 0) {
-      capacity.mul('No fuel', 0, 'The reactor cannot run dry.', 'Find fuel on an expedition, or trade for it.');
+      capacity.mul(
+        t('engine.pow.noFuel'),
+        0,
+        t('engine.pow.noFuelNote'),
+        t('engine.pow.noFuelFix'),
+      );
     }
   } else {
-    capacity.base('No reactor', 0);
+    capacity.base(t('engine.pow.noReactor'), 0);
   }
 
   if (state.research.completed.includes('eng_battery_bank')) {
     const carry = Math.min(BALANCE.power.batteryCarry, (state.flags['power:carry'] as number) ?? 0);
-    if (carry > 0) capacity.add('Battery bank carry-over', carry);
+    if (carry > 0) capacity.add(t('engine.pow.battery'), carry);
   }
 
   const capacityResult = capacity.build({ min: 0, round: 1 });
@@ -375,7 +409,10 @@ function resolvePower(state: GameState): { report: PowerReport; brownedOut: Set<
     const draw = def.levels[facility.level - 1]?.powerDraw ?? 0;
     if (draw <= 0) continue;
     draws.push({ facility, draw });
-    demand.add(`${def.name} L${facility.level}`, draw);
+    demand.add(
+      t('engine.facilityLevel', { name: facilityLabel(def), level: facility.level }),
+      draw,
+    );
   }
   const demandResult = demand.build({ min: 0, round: 1 });
 
@@ -444,7 +481,7 @@ export function decayFacilities(state: GameState, rng: { next(): number; chance(
   const pastHorizon = Math.max(0, state.day - BALANCE.endings.attritionFromDay);
   const attrition = (pastHorizon / 10) * BALANCE.endings.attritionDecayPerDecade;
   if (attrition > 0 && state.day === BALANCE.endings.attritionFromDay + 1) {
-    notes.push('The cold has got into the machinery. Everything is wearing faster now.');
+    notes.push(t('engine.fac.coldWear'));
   }
 
   for (const facility of state.facilities) {
@@ -463,12 +500,12 @@ export function decayFacilities(state: GameState, rng: { next(): number; chance(
       if (rng.chance(chance)) {
         facility.status = 'damaged';
         breakdowns.push(facility);
-        notes.push(`${def.name} broke down.`);
+        notes.push(t('engine.fac.brokeDown', { name: facilityLabel(def) }));
       }
     }
     if (facility.condition <= 0 && facility.status !== 'offline') {
       facility.status = 'offline';
-      notes.push(`${def.name} has failed completely.`);
+      notes.push(t('engine.fac.failedCompletely', { name: facilityLabel(def) }));
     }
   }
   return { notes, breakdowns };
@@ -537,7 +574,7 @@ export function applyConstructionLabour(state: GameState, labour: number): strin
     if (slot.clearProgress >= slot.clearLabour) {
       slot.sealed = false;
       delete state.flags[`clearing:${slot.id}`];
-      notes.push(`Cleared the rubble from deck ${slot.deck + 1}.`);
+      notes.push(t('engine.fac.cleared', { deck: slot.deck + 1 }));
     }
   }
 
@@ -557,7 +594,7 @@ export function applyConstructionLabour(state: GameState, labour: number): strin
         facility.progress = 0;
         facility.progressRequired = 0;
         state.stats.facilitiesBuilt += 1;
-        notes.push(`${def.name} is operational.`);
+        notes.push(t('engine.fac.operational', { name: facilityLabel(def) }));
       } else if (facility.upgradingTo) {
         facility.level = facility.upgradingTo;
         delete facility.upgradingTo;
@@ -565,7 +602,7 @@ export function applyConstructionLabour(state: GameState, labour: number): strin
         facility.progressRequired = 0;
         facility.condition = Math.min(100, facility.condition + 25);
         state.stats.facilitiesUpgraded += 1;
-        notes.push(`${def.name} upgraded to level ${facility.level}.`);
+        notes.push(t('engine.fac.upgraded', { name: facilityLabel(def), level: facility.level }));
       }
     }
   }

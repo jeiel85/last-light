@@ -44,17 +44,31 @@ export default defineConfig({
       '@store': fileURLToPath(new URL('./src/store', import.meta.url)),
       '@save': fileURLToPath(new URL('./src/save', import.meta.url)),
       '@ui': fileURLToPath(new URL('./src/ui', import.meta.url)),
+      '@i18n': fileURLToPath(new URL('./src/i18n', import.meta.url)),
     },
   },
   build: {
     target: 'es2022',
     sourcemap: false,
+    // The content chunk is prose and legitimately large; the default 500 kB warning is noise
+    // here, and a warning nobody can act on is a warning everybody learns to ignore.
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
+        /*
+         * Three chunks, split by how often each changes rather than to shrink first load.
+         *
+         * The bulk of the bundle is authored prose — 127 events, 46 encounters, 43 lore
+         * entries — and the store reaches for all of it the moment a run starts, so deferring
+         * it would buy a faster title screen and a stall on the first click. What this does
+         * buy is caching: editing an event does not invalidate React, and a UI change does
+         * not invalidate the content.
+         */
         manualChunks(id: string) {
           if (id.includes('node_modules/react') || id.includes('node_modules/scheduler')) {
             return 'react';
           }
+          if (id.includes('/src/engine/data/')) return 'content';
           return undefined;
         },
       },

@@ -9,6 +9,7 @@ import { LegacyModal } from '@ui/modals/LegacyModal';
 import { HelpModal } from '@ui/modals/HelpModal';
 import { listSlots } from '@save/serialize';
 import { AUTOSAVE_SLOT } from '@save/schema';
+import { useT } from '@ui/hooks/useTranslation';
 
 /**
  * The title screen. It exists mostly to answer three questions: is there a run to
@@ -21,6 +22,7 @@ export function MainMenu() {
   const modal = useUiStore((s) => s.modal);
   const closeModal = useUiStore((s) => s.closeModal);
   const [hasAutosave, setHasAutosave] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     void listSlots().then((slots) => {
@@ -31,63 +33,60 @@ export function MainMenu() {
   return (
     <main className="menu">
       <div className="menu-inner">
-        <p className="eyebrow">Vault Meridian · civil defence facility</p>
+        <p className="eyebrow">{t('app.eyebrow')}</p>
         <h1 className="menu-title flicker">
           LAST<span className="menu-title-dim">LIGHT</span>
         </h1>
-        <p className="menu-tag prose">
-          The world went quiet eleven weeks ago. You are what is left of the people who were
-          underground when it happened.
-        </p>
+        <p className="menu-tag prose">{t('app.tagline')}</p>
 
         <div className="menu-actions">
           <Button tone="primary" size="lg" block onClick={() => setScreen('setup')}>
-            New run
+            {t('menu.newRun')}
           </Button>
           <Button
             size="lg"
             block
             disabled={!hasAutosave}
             onClick={() => openModal('saves')}
-            title={hasAutosave ? undefined : 'No run in progress'}
+            title={hasAutosave ? undefined : t('menu.noRun')}
           >
-            Continue
+            {t('menu.continue')}
           </Button>
           <div className="menu-row">
             <Button block onClick={() => openModal('legacy')}>
-              Legacy <span className="num menu-legacy">{profile.legacy}</span>
+              {t('menu.legacy')} <span className="num menu-legacy">{profile.legacy}</span>
             </Button>
             <Button block onClick={() => openModal('saves')}>
-              Saves
+              {t('menu.saves')}
             </Button>
           </div>
           <div className="menu-row">
             <Button block onClick={() => openModal('help')}>
-              How to play
+              {t('menu.howToPlay')}
             </Button>
             <Button block onClick={() => openModal('settings')}>
-              Settings
+              {t('menu.settings')}
             </Button>
           </div>
         </div>
 
         <dl className="menu-stats">
           <div>
-            <dt className="label">Runs</dt>
+            <dt className="label">{t('menu.stat.runs')}</dt>
             <dd className="num">{profile.runsStarted}</dd>
           </div>
           <div>
-            <dt className="label">Best</dt>
+            <dt className="label">{t('menu.stat.best')}</dt>
             <dd className="num">{profile.bestDays}d</dd>
           </div>
           <div>
-            <dt className="label">Endings</dt>
+            <dt className="label">{t('menu.stat.endings')}</dt>
             <dd className="num">
               {profile.endingsSeen.length}/{ENDINGS.length}
             </dd>
           </div>
           <div>
-            <dt className="label">Archive</dt>
+            <dt className="label">{t('menu.stat.archive')}</dt>
             <dd className="num">{profile.loreArchive.length}</dd>
           </div>
         </dl>

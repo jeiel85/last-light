@@ -12,6 +12,16 @@ import {
 import { useGameStore } from '@store/gameStore';
 import { useUiStore } from '@store/uiStore';
 import { Button } from '@ui/components/Button';
+import { useT } from '@ui/hooks/useTranslation';
+import {
+  difficultyDescription,
+  difficultyName,
+  resourceName,
+  scenarioDeadline,
+  scenarioDescription,
+  scenarioName,
+  scenarioTagline,
+} from '@i18n/content';
 
 const HINT_TONE: Record<string, string> = {
   gentle: 'tone-good',
@@ -33,6 +43,7 @@ export function NewRunSetup() {
   const newRun = useGameStore((s) => s.newRun);
   const setScreen = useUiStore((s) => s.setScreen);
   const setPanel = useUiStore((s) => s.setPanel);
+  const t = useT();
 
   const scenarios = useMemo(() => Meta.availableScenarios(profile), [profile]);
   const [scenarioId, setScenarioId] = useState<string>(DEFAULT_SCENARIO);
@@ -59,14 +70,14 @@ export function NewRunSetup() {
     <main className="setup">
       <header className="setup-head">
         <button type="button" className="link-back" onClick={() => setScreen('menu')}>
-          ← Menu
+          {t('setup.back')}
         </button>
-        <h1 className="setup-title">Prepare the run</h1>
+        <h1 className="setup-title">{t('setup.title')}</h1>
       </header>
 
       <div className="setup-grid">
         <section className="setup-col">
-          <h2 className="label">Scenario</h2>
+          <h2 className="label">{t('setup.scenario')}</h2>
           <ul className="choice-list">
             {scenarios.map((s) => (
               <li key={s.id}>
@@ -76,11 +87,11 @@ export function NewRunSetup() {
                   onClick={() => setScenarioId(s.id)}
                   aria-pressed={s.id === scenarioId}
                 >
-                  <span className="choice-name">{s.name}</span>
+                  <span className="choice-name">{scenarioName(s)}</span>
                   <span className={`choice-hint ${HINT_TONE[s.difficultyHint] ?? ''}`}>
-                    {s.difficultyHint}
+                    {t(`hint.${s.difficultyHint}`)}
                   </span>
-                  <span className="choice-tag">{s.tagline}</span>
+                  <span className="choice-tag">{scenarioTagline(s)}</span>
                 </button>
               </li>
             ))}
@@ -88,7 +99,7 @@ export function NewRunSetup() {
         </section>
 
         <section className="setup-col">
-          <h2 className="label">Difficulty</h2>
+          <h2 className="label">{t('setup.difficulty')}</h2>
           <ul className="choice-list">
             {DIFFICULTIES.map((d) => (
               <li key={d.id}>
@@ -98,9 +109,11 @@ export function NewRunSetup() {
                   onClick={() => setDifficultyId(d.id)}
                   aria-pressed={d.id === difficultyId}
                 >
-                  <span className="choice-name">{d.name}</span>
-                  <span className="choice-hint num">×{d.legacyMultiplier.toFixed(2)} legacy</span>
-                  <span className="choice-tag">{d.description}</span>
+                  <span className="choice-name">{difficultyName(d)}</span>
+                  <span className="choice-hint num">
+                    {t('setup.legacyMultiplier', { value: d.legacyMultiplier.toFixed(2) })}
+                  </span>
+                  <span className="choice-tag">{difficultyDescription(d)}</span>
                 </button>
               </li>
             ))}
@@ -108,47 +121,54 @@ export function NewRunSetup() {
         </section>
 
         <section className="setup-col setup-brief">
-          <h2 className="label">Briefing</h2>
-          <p className="prose setup-desc">{scenario.description}</p>
+          <h2 className="label">{t('setup.briefing')}</h2>
+          <p className="prose setup-desc">{scenarioDescription(scenario)}</p>
 
-          <h3 className="label">Starting stores</h3>
+          <h3 className="label">{t('setup.startingStores')}</h3>
           <ul className="kv">
             {Object.entries(scenario.startingResources).map(([id, amount]) => (
               <li key={id}>
-                <span>{RESOURCES[id as keyof typeof RESOURCES]?.name ?? id}</span>
+                <span>
+                  {(() => {
+                    const def = RESOURCES[id as keyof typeof RESOURCES];
+                    return def ? resourceName(def) : id;
+                  })()}
+                </span>
                 <span className="num">{Math.round((amount ?? 0) * difficulty.startingStores)}</span>
               </li>
             ))}
             <li>
-              <span>Survivors</span>
+              <span>{t('setup.survivors')}</span>
               <span className="num">{scenario.survivorCount}</span>
             </li>
           </ul>
 
-          {scenario.deadlineText && <p className="setup-deadline tone-warn">{scenario.deadlineText}</p>}
+          {scenario.deadlineText && (
+            <p className="setup-deadline tone-warn">{scenarioDeadline(scenario)}</p>
+          )}
 
-          <h3 className="label">Seed</h3>
+          <h3 className="label">{t('setup.seed')}</h3>
           <div className="seed-row">
             <input
               className="input mono"
               value={seed}
               onChange={(e) => setSeed(e.target.value)}
-              aria-label="Run seed"
+              aria-label={t('setup.seedLabel')}
               maxLength={32}
             />
             <Button size="sm" onClick={() => setSeed(generateSeed())}>
-              Reroll
+              {t('setup.reroll')}
             </Button>
           </div>
-          <p className="hint">The same seed produces the same vault, crew, and map.</p>
+          <p className="hint">{t('setup.seedHint')}</p>
 
           <label className="check">
             <input type="checkbox" checked={guidance} onChange={(e) => setGuidance(e.target.checked)} />
-            <span>Show contextual guidance</span>
+            <span>{t('setup.guidance')}</span>
           </label>
 
           <Button tone="primary" size="lg" block onClick={start} data-autofocus>
-            Seal the door
+            {t('setup.start')}
           </Button>
         </section>
       </div>

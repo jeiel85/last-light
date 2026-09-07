@@ -1,3 +1,6 @@
+import { t } from '../../i18n';
+import { enemyName, facilityName as facilityLabel, itemName } from '../../i18n/content';
+import { FACILITY_BY_ID } from '../data/facilities';
 import type { GameState, InventoryEntry, Survivor } from '../model/types';
 import type { Rng } from '../core/rng';
 import { BreakdownBuilder, type Breakdown } from '../core/breakdown';
@@ -53,9 +56,12 @@ export function computeTeamPower(ctx: CombatContext): Breakdown {
     const health = remap(survivor.health, 20, 100, 0.45, 1);
     const morale = remap(survivor.morale, 0, 100, 0.75, 1.1);
     const skill = survivor.skills.combat * c.skillWeight * health * morale;
-    b.add(`${survivor.name} (combat ${survivor.skills.combat})`, Math.round(skill * 10) / 10);
+    b.add(
+      t('engine.cbt.fighter', { name: survivor.name, skill: survivor.skills.combat }),
+      Math.round(skill * 10) / 10,
+    );
     const traitDelta = T.combatPowerDelta(survivor);
-    if (traitDelta !== 0) b.add(`${survivor.name} traits`, traitDelta);
+    if (traitDelta !== 0) b.add(t('engine.cbt.fighterTraits', { name: survivor.name }), traitDelta);
   }
 
   // Weapons: the best weapon per member contributes, so stacking six clubs does nothing.
@@ -72,15 +78,15 @@ export function computeTeamPower(ctx: CombatContext): Breakdown {
   for (const weapon of weapons) {
     const needsAmmo = (weapon.ammoPerFight ?? 0) > 0;
     if (needsAmmo && ctx.ammo < ammoNeeded + (weapon.ammoPerFight ?? 0)) {
-      b.add(`${weapon.name} (no ammunition)`, Math.round((weapon.power ?? 0) * 0.25 * 10) / 10,
+      b.add(t('engine.cbt.weaponNoAmmo', { name: itemName(weapon) }), Math.round((weapon.power ?? 0) * 0.25 * 10) / 10,
         'An unloaded firearm is a club.', 'Bring ammunition or craft an Ammunition Box.');
       continue;
     }
     if (needsAmmo) ammoNeeded += weapon.ammoPerFight ?? 0;
-    b.add(weapon.name, weapon.power ?? 0);
+    b.add(itemName(weapon), weapon.power ?? 0);
   }
   if (ammoNeeded > 0) {
-    b.add('Ammunition on hand', Math.min(ammoNeeded, ctx.ammo) * c.ammoBonusPerRound * 0.25);
+    b.add(t('engine.cbt.ammoOnHand'), Math.min(ammoNeeded, ctx.ammo) * c.ammoBonusPerRound * 0.25);
   }
 
   let armour = 0;
@@ -88,7 +94,7 @@ export function computeTeamPower(ctx: CombatContext): Breakdown {
     const def = ITEM_BY_ID[entry.itemId];
     if (def?.armour) armour += def.armour * Math.min(entry.count, ctx.members.length);
   }
-  if (armour > 0) b.add('Protection', Math.round(armour * c.armourWeight * 10) / 10);
+  if (armour > 0) b.add(t('engine.cbt.protection'), Math.round(armour * c.armourWeight * 10) / 10);
 
   if (ctx.preparation !== 0) {
     b.add(
@@ -98,7 +104,7 @@ export function computeTeamPower(ctx: CombatContext): Breakdown {
     );
   }
 
-  if (ctx.night) b.mul('Fighting at night', 0.85);
+  if (ctx.night) b.mul(t('engine.cbt.night'), 0.85);
 
   return b.build({ min: 0, round: 1 });
 }
@@ -193,21 +199,13 @@ export function resolveCombat(rng: Rng, ctx: CombatContext): CombatResult {
 }
 
 function describeOutcome(outcome: CombatOutcome, enemy: string, retreated: boolean): string {
+  const name = enemyName(enemy);
   if (retreated && (outcome === 'repulsed' || outcome === 'disaster')) {
-    return `Somebody breaks first, and then everybody does. You disengage from ${enemy} and do not stop for two streets.`;
+    return t('engine.cbt.retreat', { enemy: name });
   }
-  switch (outcome) {
-    case 'rout':
-      return `It is over before it is a fight. ${capitalise(enemy)} withdraws without a shot fired in return.`;
-    case 'clean':
-      return `Short, controlled, and decided quickly. ${capitalise(enemy)} breaks off.`;
-    case 'costly':
-      return `You win it, and it costs. ${capitalise(enemy)} does not follow.`;
-    case 'repulsed':
-      return `You are pushed back. ${capitalise(enemy)} holds the ground and you take what you can carry.`;
-    case 'disaster':
-      return `It goes wrong immediately and stays wrong. ${capitalise(enemy)} is still there when you run.`;
-  }
+  // The opponent opens the sentence in every other line, so it is capitalised there. The
+  // operation is a no-op in scripts without case, which is why it survives translation.
+  return t(`engine.cbt.${outcome}`, { enemy: capitalise(name) });
 }
 
 function capitalise(text: string): string {
@@ -220,15 +218,29 @@ export function baseDefence(state: GameState): Breakdown {
   const b = new BreakdownBuilder();
   const security = operationalLevel(state, 'security');
   if (security > 0) {
-    b.base(`Security Post L${security}`, [0, 8, 16, 28][security] ?? 0);
+    b.base(
+      t('engine.cbt.securityPost', {
+        name: (() => {
+          const def = FACILITY_BY_ID['security'];
+          return def ? facilityLabel(def) : 'Security Post';
+        })(),
+        level: security,
+      }),
+      [0, 8, 16, 28][security] ?? 0,
+    );
     const facility = state.facilities.find((f) => f.defId === 'security');
     if (facility && facility.staff.length === 0) {
-      b.mul('Unstaffed', 0.5, 'Nobody is watching the approach.', 'Assign someone to the Security Post.');
+      b.mul(
+        t('engine.unstaffed'),
+        0.5,
+        t('engine.cbt.securityUnstaffed'),
+        t('engine.cbt.securityUnstaffedFix'),
+      );
     }
   } else {
-    b.base('The blast door', 4);
+    b.base(t('engine.cbt.blastDoor'), 4);
   }
-  if (state.research.completed.includes('def_fortification')) b.add('Fortification', 6);
+  if (state.research.completed.includes('def_fortification')) b.add(t('engine.cbt.fortification'), 6);
   for (const survivor of state.survivors) {
     if (!survivor.alive || survivor.assignment.kind === 'expedition') continue;
     b.add(`${survivor.name}`, survivor.skills.combat * 0.5);
@@ -238,9 +250,9 @@ export function baseDefence(state: GameState): Breakdown {
     (acc, entry) => acc + (ITEM_BY_ID[entry.itemId]?.power ?? 0) * Math.min(entry.count, 3),
     0,
   );
-  if (weaponPower > 0) b.add('Armoury', Math.round(weaponPower * 0.4 * 10) / 10);
+  if (weaponPower > 0) b.add(t('engine.cbt.armoury'), Math.round(weaponPower * 0.4 * 10) / 10);
   if (state.flags['base.location_known']) {
-    b.mul('The location is known', 0.85, 'Somebody followed a team home.');
+    b.mul(t('engine.cbt.locationKnown'), 0.85, t('engine.cbt.locationKnownNote'));
   }
   return b.build({ min: 0, round: 1 });
 }

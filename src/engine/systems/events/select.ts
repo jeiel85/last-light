@@ -1,3 +1,5 @@
+import { t } from '../../../i18n';
+import { eventChoiceText, eventTitle } from '../../../i18n/content';
 import type {
   EventChoice,
   EventDef,
@@ -186,14 +188,18 @@ export interface EventPresentation {
   remaining: number;
 }
 
+/**
+ * Describe the event at the head of the queue.
+ *
+ * Pure: the UI calls this during render, against a frozen Immer draft, so it must not touch
+ * the state. An id that no longer resolves — a save from a build that had an event this one
+ * does not — is skipped over here and dropped from the queue by `dropUnknownEvents`, which
+ * the day pipeline and `resolveEvent` both run.
+ */
 export function presentEvent(state: GameState): EventPresentation | null {
-  const pending = state.events.pending[0];
+  const pending = state.events.pending.find((entry) => EVENT_BY_ID[entry.eventId]);
   if (!pending) return null;
-  const event = EVENT_BY_ID[pending.eventId];
-  if (!event) {
-    state.events.pending.shift();
-    return presentEvent(state);
-  }
+  const event = EVENT_BY_ID[pending.eventId]!;
   const actor = pending.actorId
     ? state.survivors.find((s) => s.id === pending.actorId && s.alive)
     : undefined;
@@ -224,8 +230,18 @@ export function presentEvent(state: GameState): EventPresentation | null {
     event,
     ...(actor ? { actor } : {}),
     choices,
-    remaining: state.events.pending.length,
+    remaining: state.events.pending.filter((entry) => EVENT_BY_ID[entry.eventId]).length,
   };
+}
+
+/**
+ * Drop queued events this build no longer defines. Called by the writers rather than by the
+ * reader, so presentation stays pure.
+ */
+export function dropUnknownEvents(state: GameState): number {
+  const before = state.events.pending.length;
+  state.events.pending = state.events.pending.filter((entry) => Boolean(EVENT_BY_ID[entry.eventId]));
+  return before - state.events.pending.length;
 }
 
 function resolveCheckActor(
@@ -272,13 +288,27 @@ export function resolveEvent(
   rng: Rng,
   unlocks: readonly string[] = [],
 ): EventResolution {
+  // Resolution is a write, so this is where the queue gets tidied: after this the head of
+  // the queue is the event `presentEvent` described, and `shift` below removes the right one.
+  dropUnknownEvents(state);
+
   const presentation = presentEvent(state);
-  if (!presentation) return { ok: false, reason: 'No event pending', resultText: '', notes: [], hasMore: false };
+  if (!presentation) {
+    return { ok: false, reason: t('engine.event.noPending'), resultText: '', notes: [], hasMore: false };
+  }
 
   const entry = presentation.choices.find((c) => c.choice.id === choiceId);
-  if (!entry) return { ok: false, reason: 'Unknown choice', resultText: '', notes: [], hasMore: true };
+  if (!entry) {
+    return { ok: false, reason: t('engine.exp.unknownChoice'), resultText: '', notes: [], hasMore: true };
+  }
   if (!entry.enabled) {
-    return { ok: false, reason: entry.reason ?? 'Unavailable', resultText: '', notes: [], hasMore: true };
+    return {
+      ok: false,
+      reason: entry.reason ?? t('engine.exp.unavailable'),
+      resultText: '',
+      notes: [],
+      hasMore: true,
+    };
   }
 
   const choice = entry.choice;
@@ -286,11 +316,14 @@ export function resolveEvent(
   const actor = presentation.actor;
   const ctx: EffectContext = { state, rng, unlocks, ...(actor ? { actor } : {}) };
 
+  /* The choice's prose is translated once here, so every path below reads the same text. */
+  const text = eventChoiceText(event, choice);
+
   const notes = payChoiceCost(state, choice.cost);
 
   let success: boolean | undefined;
   let rollDetail: EventResolution['rollDetail'];
-  let resultText = choice.resultText ?? '';
+  let resultText = text.resultText ?? '';
 
   if (choice.check) {
     const performer = resolveCheckActor(state, choice, actor);
@@ -302,7 +335,7 @@ export function resolveEvent(
     const total = die + bonus;
     success = total >= choice.check.target;
     rollDetail = {
-      actor: performer?.name ?? 'Nobody',
+      actor: performer?.name ?? t('engine.event.nobody'),
       skill: choice.check.skill,
       roll: die,
       total,
@@ -310,7 +343,7 @@ export function resolveEvent(
     };
     notes.push(...applyEffects(choice.effects, ctx));
     notes.push(...applyEffects(success ? choice.onSuccess : choice.onFailure, ctx));
-    resultText = (success ? choice.successText : choice.failureText) ?? resultText;
+    resultText = (success ? text.successText : text.failureText) ?? resultText;
   } else {
     notes.push(...applyEffects(choice.effects, ctx));
     notes.push(...applyEffects(choice.onSuccess, ctx));
@@ -327,7 +360,7 @@ export function resolveEvent(
     day: state.day,
     choiceId,
     ...(success !== undefined ? { success } : {}),
-    summary: `${event.title} — ${choice.label}`,
+    summary: t('engine.event.summary', { title: eventTitle(event), choice: text.label }),
   });
   if (state.events.history.length > 200) state.events.history.shift();
 
@@ -335,14 +368,14 @@ export function resolveEvent(
     id: `log${(state.idCounter += 1)}`,
     day: state.day,
     tone: choice.tone === 'good' ? 'good' : choice.tone === 'bad' ? 'bad' : 'info',
-    text: `${event.title}: ${choice.label}.`,
-    channel: 'Events',
+    text: t('engine.event.logLine', { title: eventTitle(event), choice: text.label }),
+    channel: t('engine.channel.events'),
   });
 
   return {
     ok: true,
     ...(success !== undefined ? { success } : {}),
-    resultText: resultText || 'It is done.',
+    resultText: resultText || t('engine.event.done'),
     notes: notes.filter(Boolean),
     ...(rollDetail ? { rollDetail } : {}),
     hasMore: state.events.pending.length > 0,

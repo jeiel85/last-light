@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useT } from '@ui/hooks/useTranslation';
 import { useGameStore } from '@store/gameStore';
 import { playCue } from '@ui/audio/cues';
 
@@ -6,6 +7,7 @@ import { playCue } from '@ui/audio/cues';
 export function Toast() {
   const notice = useGameStore((s) => s.notice);
   const dismiss = useGameStore((s) => s.dismissNotice);
+  const t = useT();
 
   useEffect(() => {
     if (!notice) return;
@@ -18,7 +20,7 @@ export function Toast() {
   return (
     <div className={`toast toast-${notice.tone}`} role="status">
       {notice.text}
-      <button type="button" className="toast-x" onClick={dismiss} aria-label="Dismiss">
+      <button type="button" className="toast-x" onClick={dismiss} aria-label={t('common.dismiss')}>
         ✕
       </button>
     </div>

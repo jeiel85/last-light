@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BRANCH_COLOUR, BRANCH_LABEL, RESEARCH, RESEARCH_BRANCHES, Research } from '@engine';
+import { BRANCH_COLOUR, RESEARCH, RESEARCH_BRANCHES, Research } from '@engine';
 import type { ResearchBranch } from '@engine';
 import { useGameStore } from '@store/gameStore';
 import { Panel, EmptyState } from '@ui/components/Panel';
@@ -7,6 +7,8 @@ import { Button } from '@ui/components/Button';
 import { Bar } from '@ui/components/Bar';
 import { BreakdownPopover } from '@ui/components/BreakdownPopover';
 import { Guidance } from '@ui/components/Guidance';
+import { useT } from '@ui/hooks/useTranslation';
+import { researchDescription, researchEffect, researchName } from '@i18n/content';
 
 /**
  * The research tree, drawn as tiered columns per branch rather than a free-form graph:
@@ -19,6 +21,7 @@ export function ResearchPanel() {
   const cancelResearch = useGameStore((s) => s.cancelResearch);
   const notify = useGameStore((s) => s.notify);
   const [branch, setBranch] = useState<ResearchBranch | 'all'>('all');
+  const t = useT();
 
   const insight = useMemo(() => Research.insightRate(state), [state]);
   const rows = useMemo(() => Research.allResearch(state), [state]);
@@ -35,24 +38,23 @@ export function ResearchPanel() {
           {
             id: 'research.start',
             when: !active,
-            title: 'Insight only accrues while you are working',
-            body: (
-              <>
-                Pick a project and the Laboratory starts generating insight toward it. Nothing
-                accumulates while the bench is empty, and switching projects banks half of what you
-                had against the one you left.
-              </>
-            ),
+            title: t('guidance.research.title'),
+            body: t('guidance.research.body'),
           },
         ]}
       />
 
       <Panel
-        title="Research"
-        note={`${state.research.completed.length}/${RESEARCH.length} complete`}
+        title={t('research.title')}
+        note={t('research.complete', {
+          done: state.research.completed.length,
+          total: RESEARCH.length,
+        })}
         actions={
-          <BreakdownPopover breakdown={insight} title="Insight per day">
-            <span className="num">{Math.round(insight.total * 10) / 10} insight/day</span>
+          <BreakdownPopover breakdown={insight} title={t('dash.insightPerDay')}>
+            <span className="num">
+              {t('research.insightPerDay', { value: Math.round(insight.total * 10) / 10 })}
+            </span>
           </BreakdownPopover>
         }
       >
@@ -60,39 +62,37 @@ export function ResearchPanel() {
           <div className="active-research">
             <div className="row gap-2">
               <span className="branch-dot" style={{ background: BRANCH_COLOUR[activeNode.branch] }} />
-              <strong className="grow">{activeNode.name}</strong>
+              <strong className="grow">{researchName(activeNode)}</strong>
               <span className="num tone-muted">
                 {Math.round(active.progress)}/{active.required}
               </span>
               <Button
                 size="sm"
                 tone="ghost"
-                onClick={() => notify(cancelResearch().message ?? 'Shelved.', 'info')}
+                onClick={() => notify(cancelResearch().message ?? t('research.shelved'), 'info')}
               >
-                Shelve
+                {t('research.shelve')}
               </Button>
             </div>
             <Bar value={active.progress / Math.max(1, active.required)} colour={BRANCH_COLOUR[activeNode.branch]} height={6} />
-            <p className="prose">{activeNode.description}</p>
-            <p className="hint">{activeNode.effectText}</p>
+            <p className="prose">{researchDescription(activeNode)}</p>
+            <p className="hint">{researchEffect(activeNode)}</p>
           </div>
         ) : (
-          <EmptyState>
-            No project running. Insight accumulates only while something is being worked on.
-          </EmptyState>
+          <EmptyState>{t('research.none')}</EmptyState>
         )}
       </Panel>
 
       <Panel
-        title="Projects"
+        title={t('research.projects')}
         actions={
-          <div className="branch-filter">
+          <div className="branch-filter" role="group" aria-label={t('research.categoryLabel')}>
             <button
               type="button"
               className={`chip ${branch === 'all' ? 'chip-active' : ''}`}
               onClick={() => setBranch('all')}
             >
-              All
+              {t('research.all')}
             </button>
             {RESEARCH_BRANCHES.map((b) => (
               <button
@@ -102,7 +102,7 @@ export function ResearchPanel() {
                 onClick={() => setBranch(b)}
                 style={{ borderColor: BRANCH_COLOUR[b] }}
               >
-                {BRANCH_LABEL[b]}
+                {t(`research.branch.${b}`)}
               </button>
             ))}
           </div>
@@ -114,7 +114,7 @@ export function ResearchPanel() {
             if (nodes.length === 0) return null;
             return (
               <div key={tier} className="tree-tier">
-                <h3 className="label tree-tier-label">Tier {tier}</h3>
+                <h3 className="label tree-tier-label">{t('research.tier', { tier })}</h3>
                 <ul className="tree-nodes">
                   {nodes.map(({ node, ok, reason, cost, estimatedDays, completed, active: isActive }) => (
                     <li
@@ -125,21 +125,23 @@ export function ResearchPanel() {
                       style={{ borderLeftColor: BRANCH_COLOUR[node.branch] }}
                     >
                       <div className="row gap-2">
-                        <span className="tree-name grow">{node.name}</span>
+                        <span className="tree-name grow">{researchName(node)}</span>
                         <span className="num tone-muted">{cost}</span>
                       </div>
-                      <p className="tree-desc">{node.description}</p>
-                      <p className="tree-effect hint">{node.effectText}</p>
+                      <p className="tree-desc">{researchDescription(node)}</p>
+                      <p className="tree-effect hint">{researchEffect(node)}</p>
                       <div className="row gap-2">
-                        <span className="tone-muted mono">{BRANCH_LABEL[node.branch]}</span>
+                        <span className="tone-muted mono">{t(`research.branch.${node.branch}`)}</span>
                         {estimatedDays !== null && !completed && (
-                          <span className="tone-muted mono">~{estimatedDays}d</span>
+                          <span className="tone-muted mono">
+                            {t('research.estimate', { days: estimatedDays })}
+                          </span>
                         )}
                         <span className="right">
                           {completed ? (
-                            <span className="tone-good">Complete</span>
+                            <span className="tone-good">{t('research.completeLabel')}</span>
                           ) : isActive ? (
-                            <span className="tone-info">Running</span>
+                            <span className="tone-info">{t('research.running')}</span>
                           ) : (
                             <Button
                               size="sm"
@@ -147,13 +149,13 @@ export function ResearchPanel() {
                               title={reason}
                               onClick={() => {
                                 const result = startResearch(node.id);
-                                notify(
-                                  result.message ?? (result.ok ? 'Project started.' : 'Cannot start that.'),
-                                  result.ok ? 'good' : 'bad',
-                                );
+                                const fallback = result.ok
+                                  ? t('research.started')
+                                  : t('research.cannotStart');
+                                notify(result.message ?? fallback, result.ok ? 'good' : 'bad');
                               }}
                             >
-                              {ok ? 'Start' : (reason ?? 'Locked')}
+                              {ok ? t('research.start') : (reason ?? t('research.locked'))}
                             </Button>
                           )}
                         </span>

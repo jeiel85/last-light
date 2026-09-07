@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import type { LogTone } from '@engine';
 import { useGameStore } from '@store/gameStore';
 import { useUiStore } from '@store/uiStore';
+import { useT } from '@ui/hooks/useTranslation';
 
-const FILTERS: { id: 'all' | 'alerts' | 'story'; label: string; tones: LogTone[] }[] = [
-  { id: 'all', label: 'All', tones: [] },
-  { id: 'alerts', label: 'Alerts', tones: ['bad', 'warn'] },
-  { id: 'story', label: 'Story', tones: ['lore', 'good'] },
+const FILTERS: { id: 'all' | 'alerts' | 'story'; tones: LogTone[] }[] = [
+  { id: 'all', tones: [] },
+  { id: 'alerts', tones: ['bad', 'warn'] },
+  { id: 'story', tones: ['lore', 'good'] },
 ];
 
 /**
@@ -19,6 +20,7 @@ export function LogColumn({ drawer = false }: { drawer?: boolean }) {
   const logOpen = useUiStore((s) => s.logOpen);
   const toggleLog = useUiStore((s) => s.toggleLog);
   const [filter, setFilter] = useState<'all' | 'alerts' | 'story'>('all');
+  const t = useT();
 
   const entries = useMemo(() => {
     const active = FILTERS.find((f) => f.id === filter)!;
@@ -31,7 +33,7 @@ export function LogColumn({ drawer = false }: { drawer?: boolean }) {
   const body = (
     <>
       <header className="log-head">
-        <h2 className="label">Log</h2>
+        <h2 className="label">{t('common.log')}</h2>
         <div className="log-filters">
           {FILTERS.map((f) => (
             <button
@@ -40,21 +42,23 @@ export function LogColumn({ drawer = false }: { drawer?: boolean }) {
               className={`chip ${filter === f.id ? 'chip-active' : ''}`}
               onClick={() => setFilter(f.id)}
             >
-              {f.label}
+              {t(`common.logFilter.${f.id}`)}
             </button>
           ))}
         </div>
         {drawer && (
-          <button type="button" className="modal-close" onClick={() => toggleLog(false)} aria-label="Close log">
+          <button type="button" className="modal-close" onClick={() => toggleLog(false)} aria-label={t('common.closeLog')}>
             ✕
           </button>
         )}
       </header>
       <ol className="log-list">
-        {entries.length === 0 && <li className="empty-state">Nothing recorded yet.</li>}
+        {entries.length === 0 && <li className="empty-state">{t('common.logEmpty')}</li>}
         {entries.map((entry) => (
           <li key={entry.id} className={`log-entry log-${entry.tone}`}>
-            <span className="log-day mono">{entry.day === day ? 'now' : `d${entry.day}`}</span>
+            <span className="log-day mono">
+              {entry.day === day ? t('common.now') : t('common.dayShort', { day: entry.day })}
+            </span>
             <span className="log-text">
               {entry.channel && <span className="log-channel">{entry.channel} · </span>}
               {entry.text}
@@ -73,7 +77,7 @@ export function LogColumn({ drawer = false }: { drawer?: boolean }) {
           if (e.target === e.currentTarget) toggleLog(false);
         }}
       >
-        <aside className="log-drawer" aria-label="Log">
+        <aside className="log-drawer" aria-label={t('common.log')}>
           {body}
         </aside>
       </div>
@@ -81,7 +85,7 @@ export function LogColumn({ drawer = false }: { drawer?: boolean }) {
   }
 
   return (
-    <aside className="log-col" aria-label="Log">
+    <aside className="log-col" aria-label={t('common.log')}>
       {body}
     </aside>
   );

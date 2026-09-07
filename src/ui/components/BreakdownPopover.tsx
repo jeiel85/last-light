@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Breakdown, BreakdownTerm } from '@engine';
+import { t } from '@i18n';
 
 /**
  * The single renderer for every derived number in the game.
@@ -37,31 +38,35 @@ interface BreakdownPopoverProps {
 
 export function BreakdownPopover({ breakdown, title, children, unit }: BreakdownPopoverProps) {
   const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const wrapRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const id = useId();
 
   /*
-   * The popover is portalled and positioned in viewport space. Several of its callers —
-   * the status rail, the log — live inside scrolling containers that would otherwise clip
-   * it, and a breakdown that cannot be read defeats the point of having one.
+   * The popover is portalled and positioned in viewport space. Several of its callers — the
+   * status rail, the log — live inside scrolling containers that would otherwise clip it,
+   * and a breakdown that cannot be read defeats the point of having one.
+   *
+   * The measurement is written straight to the node rather than through state: position is
+   * a property of the layout, not of the component, and routing it through a render would
+   * mean drawing the popover twice every time it opens or the page scrolls.
    */
   useLayoutEffect(() => {
-    if (!open) {
-      setAnchor(null);
-      return;
-    }
-    const place = () => {
+    const node = popRef.current;
+    if (!open || !node) return;
+
+    const place = (): void => {
       const trigger = wrapRef.current?.getBoundingClientRect();
       if (!trigger) return;
-      const width = popRef.current?.offsetWidth ?? 320;
-      const height = popRef.current?.offsetHeight ?? 200;
+      const { offsetWidth: width, offsetHeight: height } = node;
       const left = Math.max(8, Math.min(window.innerWidth - width - 8, trigger.right - width));
       const below = trigger.bottom + 6;
       const top = below + height > window.innerHeight - 8 ? Math.max(8, trigger.top - height - 6) : below;
-      setAnchor({ top, left });
+      node.style.left = `${Math.round(left)}px`;
+      node.style.top = `${Math.round(top)}px`;
+      node.style.visibility = 'visible';
     };
+
     place();
     window.addEventListener('scroll', place, true);
     window.addEventListener('resize', place);
@@ -97,7 +102,7 @@ export function BreakdownPopover({ breakdown, title, children, unit }: Breakdown
         aria-expanded={open}
         aria-controls={id}
         /* The visible content is a bare number, so the control needs its own name. */
-        aria-label={`Inspect ${title}`}
+        aria-label={t('rail.inspect', { subject: title })}
         onClick={() => setOpen((v) => !v)}
         title={`Inspect: ${title}`}
       >
@@ -111,7 +116,8 @@ export function BreakdownPopover({ breakdown, title, children, unit }: Breakdown
             role="dialog"
             aria-label={`${title} breakdown`}
             ref={popRef}
-            style={anchor ? { top: anchor.top, left: anchor.left } : { visibility: 'hidden' }}
+            // Hidden until the layout effect has measured it, so it never flashes at 0,0.
+            style={{ visibility: 'hidden' }}
           >
           <header className="bd-pop-head">
             <span className="label">{title}</span>
@@ -121,7 +127,7 @@ export function BreakdownPopover({ breakdown, title, children, unit }: Breakdown
             </span>
           </header>
           <ul className="bd-terms">
-            {breakdown.terms.length === 0 && <li className="tone-muted">No contributing terms.</li>}
+            {breakdown.terms.length === 0 && <li className="tone-muted">{t('breakdown.none')}</li>}
             {breakdown.terms.map((term, i) => (
               <li key={`${term.label}-${i}`} className={termClass(term)}>
                 <span className="bd-term-label">{term.label}</span>

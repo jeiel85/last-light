@@ -6,14 +6,33 @@ import {
   ITEMS,
   LORE,
   RESOURCE_LIST,
-  THEORY_LABEL,
   THEORY_SUMMARY,
   TRAITS,
 } from '@engine';
+import type { LoreDef } from '@engine';
 import { useGameStore } from '@store/gameStore';
 import { Panel, EmptyState } from '@ui/components/Panel';
 import { Tabs } from '@ui/components/Tabs';
 import { Icon } from '@ui/components/Icon';
+import { useT } from '@ui/hooks/useTranslation';
+import type { MessageKey } from '@i18n';
+import {
+  conditionDescription,
+  conditionName,
+  facilityDescription,
+  facilityLevelSummary,
+  facilityName,
+  itemDescription,
+  itemName,
+  loreBody,
+  loreSource,
+  loreTitle,
+  resourceFailure,
+  resourceName,
+  resourceSummary,
+  traitDescription,
+  traitName,
+} from '@i18n/content';
 
 type ArchiveTab = 'lore' | 'stats' | 'resources' | 'facilities' | 'items' | 'traits' | 'conditions';
 
@@ -26,6 +45,8 @@ export function ArchivePanel() {
   const profile = useGameStore((s) => s.profile);
   const [tab, setTab] = useState<ArchiveTab>('lore');
   const [query, setQuery] = useState('');
+  const t = useT();
+  const theoryLabel = (theory: LoreDef['theory']) => t(`theory.${theory}`);
 
   const foundLore = useMemo(() => {
     const ids = new Set([...state.lore, ...profile.loreArchive]);
@@ -45,31 +66,31 @@ export function ArchivePanel() {
   return (
     <div className="col gap-3">
       <Panel
-        title="Archive"
-        note={`${foundLore.length}/${LORE.length} fragments`}
+        title={t('archive.title')}
+        note={t('archive.fragments', { found: foundLore.length, total: LORE.length })}
         actions={
           <input
             className="input input-sm"
-            placeholder="Search…"
+            placeholder={t('archive.search')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search the archive"
+            aria-label={t('archive.searchLabel')}
           />
         }
       >
         <Tabs
           tabs={[
-            { id: 'lore', label: 'Fragments', count: foundLore.length },
-            { id: 'stats', label: 'Run' },
-            { id: 'resources', label: 'Resources' },
-            { id: 'facilities', label: 'Facilities' },
-            { id: 'items', label: 'Items' },
-            { id: 'traits', label: 'Traits' },
-            { id: 'conditions', label: 'Conditions' },
+            { id: 'lore', label: t('archive.tab.lore'), count: foundLore.length },
+            { id: 'stats', label: t('archive.tab.stats') },
+            { id: 'resources', label: t('archive.tab.resources') },
+            { id: 'facilities', label: t('archive.tab.facilities') },
+            { id: 'items', label: t('archive.tab.items') },
+            { id: 'traits', label: t('archive.tab.traits') },
+            { id: 'conditions', label: t('archive.tab.conditions') },
           ]}
           active={tab}
           onChange={setTab}
-          ariaLabel="Archive section"
+          ariaLabel={t('archive.section')}
         />
 
         {tab === 'lore' && (
@@ -77,27 +98,31 @@ export function ArchivePanel() {
             {theories.length > 0 && (
               <div className="theory-row">
                 {theories.map(([theory, count]) => (
-                  <div key={theory} className="theory-card" title={THEORY_SUMMARY[theory as keyof typeof THEORY_SUMMARY]}>
-                    <span className="label">{THEORY_LABEL[theory as keyof typeof THEORY_LABEL] ?? theory}</span>
+                  <div
+                    key={theory}
+                    className="theory-card"
+                    title={THEORY_SUMMARY[theory as keyof typeof THEORY_SUMMARY]}
+                  >
+                    <span className="label">{theoryLabel(theory as LoreDef['theory'])}</span>
                     <span className="num">{count}</span>
                   </div>
                 ))}
               </div>
             )}
             {foundLore.length === 0 && (
-              <EmptyState>Nothing recovered yet. Fragments come from expeditions and the radio.</EmptyState>
+              <EmptyState>{t('archive.noLore')}</EmptyState>
             )}
             <ul className="lore-list">
               {foundLore
-                .filter((entry) => match(entry.title) || match(entry.body))
+                .filter((entry) => match(loreTitle(entry)) || match(loreBody(entry)))
                 .map((entry) => (
                   <li key={entry.id} className="lore-entry">
-                    <h3 className="lore-title">{entry.title}</h3>
-                    <p className="lore-source eyebrow">{entry.source}</p>
-                    <p className="prose">{entry.body}</p>
+                    <h3 className="lore-title">{loreTitle(entry)}</h3>
+                    <p className="lore-source eyebrow">{loreSource(entry)}</p>
+                    <p className="prose">{loreBody(entry)}</p>
                     {entry.theory !== 'none' && (
                       <p className="tone-lore">
-                        Supports: {THEORY_LABEL[entry.theory as keyof typeof THEORY_LABEL] ?? entry.theory}
+                        {t('archive.supports', { theory: theoryLabel(entry.theory) })}
                       </p>
                     )}
                   </li>
@@ -110,7 +135,7 @@ export function ArchivePanel() {
           <ul className="kv kv-2col">
             {Object.entries(state.stats).map(([key, value]) => (
               <li key={key}>
-                <span>{key.replace(/([A-Z])/g, ' $1').toLowerCase()}</span>
+                <span>{t(`stat.${key}` as MessageKey)}</span>
                 <span className="num">{Math.round(value as number)}</span>
               </li>
             ))}
@@ -119,13 +144,13 @@ export function ArchivePanel() {
 
         {tab === 'resources' && (
           <ul className="ency-list">
-            {RESOURCE_LIST.filter((r) => match(r.name) || match(r.summary)).map((r) => (
+            {RESOURCE_LIST.filter((r) => match(resourceName(r)) || match(resourceSummary(r))).map((r) => (
               <li key={r.id}>
                 <span className="ency-dot" style={{ background: r.colour }} />
                 <span className="col">
-                  <strong>{r.name}</strong>
-                  <span className="tone-muted">{r.summary}</span>
-                  <span className="tone-bad">{r.failure}</span>
+                  <strong>{resourceName(r)}</strong>
+                  <span className="tone-muted">{resourceSummary(r)}</span>
+                  <span className="tone-bad">{resourceFailure(r)}</span>
                 </span>
               </li>
             ))}
@@ -134,16 +159,27 @@ export function ArchivePanel() {
 
         {tab === 'facilities' && (
           <ul className="ency-list">
-            {FACILITIES.filter((f) => match(f.name) || match(f.description)).map((f) => (
+            {FACILITIES.filter((f) => match(facilityName(f)) || match(facilityDescription(f))).map((f) => (
               <li key={f.id}>
                 <Icon name={f.icon} size={20} className="build-icon" />
                 <span className="col">
                   <strong>
-                    {f.name}{' '}
-                    {state.research.completed.includes(f.requiresResearch ?? '') || !f.requiresResearch ? '' : '(locked)'}
+                    {facilityName(f)}{' '}
+                    {state.research.completed.includes(f.requiresResearch ?? '') || !f.requiresResearch
+                      ? ''
+                      : t('archive.locked')}
                   </strong>
-                  <span className="tone-muted">{f.description}</span>
-                  <span className="hint">{f.levels.map((l, i) => `L${i + 1}: ${l.summary}`).join(' · ')}</span>
+                  <span className="tone-muted">{facilityDescription(f)}</span>
+                  <span className="hint">
+                    {f.levels
+                      .map((_, i) =>
+                        t('archive.levelSummary', {
+                          level: i + 1,
+                          summary: facilityLevelSummary(f, i + 1),
+                        }),
+                      )
+                      .join(' · ')}
+                  </span>
                 </span>
               </li>
             ))}
@@ -152,14 +188,18 @@ export function ArchivePanel() {
 
         {tab === 'items' && (
           <ul className="ency-list">
-            {ITEMS.filter((i) => match(i.name) || match(i.description)).map((item) => (
+            {ITEMS.filter((i) => match(itemName(i)) || match(itemDescription(i))).map((item) => (
               <li key={item.id}>
                 <Icon name={item.icon} size={20} className="build-icon" />
                 <span className="col">
-                  <strong>{item.name}</strong>
-                  <span className="tone-muted">{item.description}</span>
+                  <strong>{itemName(item)}</strong>
+                  <span className="tone-muted">{itemDescription(item)}</span>
                   <span className="hint mono">
-                    {item.category} · {item.weight} kg · salvages for {item.salvage}
+                    {t('archive.itemMeta', {
+                      category: t(`itemCategory.${item.category}`),
+                      weight: item.weight,
+                      salvage: item.salvage,
+                    })}
                   </span>
                 </span>
               </li>
@@ -169,13 +209,14 @@ export function ArchivePanel() {
 
         {tab === 'traits' && (
           <ul className="ency-list">
-            {TRAITS.filter((t) => match(t.name) || match(t.description)).map((t) => (
-              <li key={t.id}>
+            {TRAITS.filter((trait) => match(traitName(trait)) || match(traitDescription(trait))).map((trait) => (
+              <li key={trait.id}>
                 <span className="col">
                   <strong>
-                    {t.name} <span className="tone-muted">{t.category}</span>
+                    {traitName(trait)}{' '}
+                    <span className="tone-muted">{t(`traitCategory.${trait.category}`)}</span>
                   </strong>
-                  <span className="tone-muted">{t.description}</span>
+                  <span className="tone-muted">{traitDescription(trait)}</span>
                 </span>
               </li>
             ))}
@@ -184,17 +225,26 @@ export function ArchivePanel() {
 
         {tab === 'conditions' && (
           <ul className="ency-list">
-            {CONDITIONS.filter((c) => match(c.name) || match(c.description)).map((c) => (
+            {CONDITIONS.filter((c) => match(conditionName(c)) || match(conditionDescription(c))).map((c) => (
               <li key={c.id}>
                 <span className="col">
                   <strong>
-                    {c.name} <span className="tone-muted">{c.kind}</span>
+                    {conditionName(c)} <span className="tone-muted">{t(`conditionKind.${c.kind}`)}</span>
                   </strong>
-                  <span className="tone-muted">{c.description}</span>
+                  <span className="tone-muted">{conditionDescription(c)}</span>
                   <span className="hint mono">
-                    {c.medicineCost > 0 ? `${c.medicineCost} medicine to treat` : 'no medicine needed'}
-                    {c.blocksExpedition ? ' · cannot travel' : ''}
-                    {c.escalatesTo ? ` · worsens into ${CONDITION_BY_ID[c.escalatesTo]?.name ?? c.escalatesTo}` : ''}
+                    {c.medicineCost > 0
+                      ? t('archive.treatCost', { cost: c.medicineCost })
+                      : t('archive.noMedicine')}
+                    {c.blocksExpedition ? t('archive.cannotTravel') : ''}
+                    {c.escalatesTo
+                      ? t('archive.worsensInto', {
+                          name: (() => {
+                            const worse = CONDITION_BY_ID[c.escalatesTo];
+                            return worse ? conditionName(worse) : c.escalatesTo;
+                          })(),
+                        })
+                      : ''}
                   </span>
                 </span>
               </li>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { useT } from '@ui/hooks/useTranslation';
 
 interface ModalProps {
   title: string;
@@ -27,6 +28,7 @@ export function Modal({
 }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
+  const t = useT();
 
   useEffect(() => {
     restoreRef.current = document.activeElement as HTMLElement | null;
@@ -89,7 +91,7 @@ export function Modal({
             {subtitle && <p className="modal-sub">{subtitle}</p>}
           </div>
           {dismissible && onClose && (
-            <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
+            <button type="button" className="modal-close" onClick={onClose} aria-label={t('common.close')}>
               ✕
             </button>
           )}

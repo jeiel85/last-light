@@ -1,3 +1,5 @@
+import { t } from '../../i18n';
+import { itemName } from '../../i18n/content';
 import type { GameState, InventoryEntry, ItemId, Survivor } from '../model/types';
 import { ITEM_BY_ID } from '../data/items';
 import { clamp } from '../core/math';
@@ -86,12 +88,12 @@ export function consumeItem(
 ): UseResult {
   const def = ITEM_BY_ID[itemId];
   const use = def?.use;
-  if (!def || !use) return { ok: false, message: 'That item cannot be used.' };
-  if (itemCount(state, itemId) <= 0) return { ok: false, message: 'None left.' };
+  if (!def || !use) return { ok: false, message: t('engine.inv.cannotUse') };
+  if (itemCount(state, itemId) <= 0) return { ok: false, message: t('engine.inv.noneLeft') };
 
   const survivor = survivorId ? state.survivors.find((s) => s.id === survivorId) : null;
   if (use.kind !== 'resource' && !survivor) {
-    return { ok: false, message: 'Choose a survivor first.' };
+    return { ok: false, message: t('engine.inv.chooseSurvivor') };
   }
 
   switch (use.kind) {
@@ -110,7 +112,7 @@ export function consumeItem(
         return { ok: true, message: `${survivor!.name}'s condition has been treated.` };
       }
       target.severity = clamp(target.severity - 25, 0, 100);
-      return { ok: true, message: `It helps, but not enough. Severity reduced.` };
+      return { ok: true, message: t('engine.inv.helpsNotEnough') };
     }
     case 'restoreFatigue': {
       survivor!.fatigue = clamp(survivor!.fatigue - use.amount, 0, 100);
@@ -144,17 +146,20 @@ export function consumeItem(
 /** Break an item down for components. */
 export function salvageItem(state: GameState, itemId: ItemId): UseResult {
   const def = ITEM_BY_ID[itemId];
-  if (!def) return { ok: false, message: 'Unknown item.' };
-  if (itemCount(state, itemId) <= 0) return { ok: false, message: 'None left.' };
+  if (!def) return { ok: false, message: t('engine.inv.unknownItem') };
+  if (itemCount(state, itemId) <= 0) return { ok: false, message: t('engine.inv.noneLeft') };
   if (def.salvage <= 0) return { ok: false, message: `${def.name} cannot be broken down usefully.` };
   const workshop = state.facilities.find((f) => f.defId === 'workshop' && f.status === 'operational');
-  if (!workshop) return { ok: false, message: 'You need an operational Workshop.' };
+  if (!workshop) return { ok: false, message: t('engine.inv.needWorkshop') };
   let value = def.salvage;
   if (workshop.level >= 2) value *= 1.3;
   if (state.research.completed.includes('eng_salvage_protocol')) value *= 1.5;
   removeItem(state, itemId, 1);
   const gained = grantResource(state, 'components', Math.round(value));
-  return { ok: true, message: `Broke down ${def.name} for ${Math.round(gained)} components.` };
+  return {
+    ok: true,
+    message: t('engine.inv.brokeDown', { name: itemName(def), amount: Math.round(gained) }),
+  };
 }
 
 /** Apply an item's condition-curing effect during infirmary treatment. */

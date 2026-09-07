@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Facilities, RESOURCE_LIST, Resources } from '@engine';
 import { useGameStore } from '@store/gameStore';
 import { Gauge } from '@ui/components/Gauge';
+import { useT } from '@ui/hooks/useTranslation';
 
 /**
  * The status rail is the game's spine: eight resources, their direction of travel, and a
@@ -16,6 +17,7 @@ export function StatusRail({ compact = false }: { compact?: boolean }) {
   const state = useGameStore((s) => s.state);
   const numericMode = useGameStore((s) => s.settings.numericMode);
   const [open, setOpen] = useState(false);
+  const t = useT();
 
   const flows = useMemo(() => {
     if (!state) return null;
@@ -48,8 +50,8 @@ export function StatusRail({ compact = false }: { compact?: boolean }) {
 
   if (!compact) {
     return (
-      <aside className="rail" aria-label="Vault status">
-        <h2 className="label rail-head">Stores</h2>
+      <aside className="rail" aria-label={t('rail.status')}>
+        <h2 className="label rail-head">{t('rail.title')}</h2>
         {gauges}
       </aside>
     );
@@ -72,7 +74,7 @@ export function StatusRail({ compact = false }: { compact?: boolean }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        <span className="label">Stores</span>
+        <span className="label">{t('rail.title')}</span>
         <span className="rail-chips">
           {RESOURCE_LIST.filter((def) => def.kind !== 'flow')
             .slice(0, 5)

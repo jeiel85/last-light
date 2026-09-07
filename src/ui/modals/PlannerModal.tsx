@@ -10,6 +10,9 @@ import { Portrait } from '@ui/components/Portrait';
 import { BreakdownPopover } from '@ui/components/BreakdownPopover';
 import { Icon } from '@ui/components/Icon';
 import { announce } from '@ui/hooks/announce';
+import { useT } from '@ui/hooks/useTranslation';
+import { occupationOf, siteName } from '@ui/lib/labels';
+import { itemName, resourceName } from '@i18n/content';
 
 /**
  * The expedition planner.
@@ -24,6 +27,7 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
   const notify = useGameStore((s) => s.notify);
   const selectedLocation = useUiStore((s) => s.selectedLocation);
   const selectLocation = useUiStore((s) => s.selectLocation);
+  const t = useT();
 
   const reachable = useMemo(() => World.reachableLocations(state), [state]);
   const [locationId, setLocationId] = useState(selectedLocation ?? reachable[0]?.id ?? '');
@@ -83,31 +87,35 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
     if (!location) return;
     const result = dispatch(location.id, members, loadout);
     if (!result.ok) {
-      notify(result.message ?? 'They cannot leave like this.', 'bad');
+      notify(result.message ?? t('planner.cannotLeave'), 'bad');
       return;
     }
-    announce(`Expedition dispatched to ${location.name}.`);
+    announce(t('planner.dispatched', { name: siteName(location) }));
     selectLocation(location.id);
     onClose();
   };
 
   return (
     <Modal
-      title="Plan an expedition"
-      subtitle="Nothing is committed until you send them up the stair."
+      title={t('planner.title')}
+      subtitle={t('planner.subtitle')}
       onClose={onClose}
       size="wide"
       footer={
         <div className="row gap-2 grow">
           <span className="tone-muted">
-            {members.length} going · {Math.round(weight)}/{Math.round(capacity)} kg
+            {t('planner.going', {
+              count: members.length,
+              weight: Math.round(weight),
+              capacity: Math.round(capacity),
+            })}
           </span>
           <span className="right row gap-2">
             <Button tone="ghost" onClick={onClose}>
-              Cancel
+              {t('planner.cancel')}
             </Button>
             <Button tone="primary" disabled={!location || members.length === 0} onClick={go}>
-              Send them
+              {t('planner.send')}
             </Button>
           </span>
         </div>
@@ -115,7 +123,7 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
     >
       <div className="planner">
         <section className="planner-col">
-          <h3 className="label">Destination</h3>
+          <h3 className="label">{t('planner.destination')}</h3>
           <ul className="choice-list">
             {reachable.map((loc) => {
               const archetype = ARCHETYPE_BY_ID[loc.archetypeId];
@@ -129,22 +137,27 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
                     aria-pressed={loc.id === locationId}
                   >
                     <span className="choice-name">
-                      <Icon name={archetype?.icon ?? 'hatch'} size={15} /> {loc.name}
+                      <Icon name={archetype?.icon ?? 'hatch'} size={15} /> {siteName(loc)}
                     </span>
                     <span className="choice-hint mono">
-                      {World.travelDaysFor(state, loc)}d · {knowledge.danger ? `danger ${Math.round(loc.danger)}` : 'unsurveyed'}
+                      {t('planner.destinationMeta', {
+                        days: World.travelDaysFor(state, loc),
+                        danger: knowledge.danger
+                          ? Math.round(loc.danger)
+                          : t('map.unsurveyed'),
+                      })}
                     </span>
-                    <span className="choice-tag">{loc.state}</span>
+                    <span className="choice-tag">{t(`map.state.${loc.state}`)}</span>
                   </button>
                 </li>
               );
             })}
-            {reachable.length === 0 && <li className="empty-state">Nowhere is reachable yet.</li>}
+            {reachable.length === 0 && <li className="empty-state">{t('planner.nowhere')}</li>}
           </ul>
         </section>
 
         <section className="planner-col">
-          <h3 className="label">Team</h3>
+          <h3 className="label">{t('planner.team')}</h3>
           <ul className="team-list">
             {eligible.map(({ survivor, gate }) => (
               <li key={survivor.id}>
@@ -160,8 +173,12 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
                     <span className="truncate">{survivor.name}</span>
                     <span className="tone-muted truncate">
                       {gate.ok
-                        ? `${survivor.occupation} · scav ${survivor.skills.scavenging} · fight ${survivor.skills.combat}`
-                        : gate.reason}
+                        ? t('planner.memberMeta', {
+                            occupation: occupationOf(survivor),
+                            scavenging: survivor.skills.scavenging,
+                            combat: survivor.skills.combat,
+                          })
+                        : (gate.reason ?? '')}
                     </span>
                   </span>
                 </label>
@@ -169,14 +186,14 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
             ))}
           </ul>
 
-          <h3 className="label">Supplies</h3>
+          <h3 className="label">{t('planner.supplies')}</h3>
           <ul className="supply-list">
             {(['rations', 'water', 'ammo', 'medicine'] as const).map((key) => {
               const resource = key === 'rations' ? 'food' : key === 'water' ? 'water' : key;
               const available = Math.floor(state.resources[resource as keyof typeof state.resources] ?? 0);
               return (
                 <li key={key}>
-                  <span className="label grow">{key}</span>
+                  <span className="label grow">{t(`planner.supply.${key}`)}</span>
                   <input
                     type="number"
                     className="input input-sm input-num"
@@ -189,7 +206,7 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
                         [key]: Math.max(0, Math.min(available, Number(e.target.value))),
                       }))
                     }
-                    aria-label={`${key} to pack`}
+                    aria-label={t('planner.packLabel', { name: t(`planner.supply.${key}`) })}
                   />
                   <span className="tone-muted mono">/{available}</span>
                 </li>
@@ -197,7 +214,7 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
             })}
           </ul>
 
-          <h3 className="label">Gear</h3>
+          <h3 className="label">{t('planner.gear')}</h3>
           <ul className="supply-list">
             {state.inventory.map((entry) => {
               const def = ITEM_BY_ID[entry.itemId];
@@ -206,7 +223,7 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
               return (
                 <li key={entry.itemId}>
                   <span className="grow truncate row gap-2">
-                    <Icon name={def.icon} size={15} /> {def.name}
+                    <Icon name={def.icon} size={15} /> {itemName(def)}
                   </span>
                   <input
                     type="number"
@@ -215,49 +232,57 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
                     max={entry.count}
                     value={packed}
                     onChange={(e) => setItemCount(entry.itemId, Math.max(0, Math.min(entry.count, Number(e.target.value))))}
-                    aria-label={`${def.name} to pack`}
+                    aria-label={t('planner.packLabel', { name: itemName(def) })}
                   />
                   <span className="tone-muted mono">/{entry.count}</span>
                 </li>
               );
             })}
-            {state.inventory.length === 0 && <li className="empty-state">Nothing to take.</li>}
+            {state.inventory.length === 0 && (
+              <li className="empty-state">{t('planner.nothingToTake')}</li>
+            )}
           </ul>
         </section>
 
         <section className="planner-col">
-          <h3 className="label">Forecast</h3>
-          {!forecast && <p className="empty-state">Choose a destination.</p>}
+          <h3 className="label">{t('planner.forecast')}</h3>
+          {!forecast && <p className="empty-state">{t('planner.chooseDestination')}</p>}
           {forecast && (
             <>
               <ul className="kv">
                 <li>
-                  <span>Time away</span>
-                  <span className="num">{forecast.travelDays * 2 + 1} days</span>
+                  <span>{t('planner.timeAway')}</span>
+                  <span className="num">
+                    {t('planner.days', { days: forecast.travelDays * 2 + 1 })}
+                  </span>
                 </li>
                 <li>
-                  <span>Combat power</span>
-                  <BreakdownPopover breakdown={forecast.combatPower} title="Combat power">
+                  <span>{t('planner.combatPower')}</span>
+                  <BreakdownPopover breakdown={forecast.combatPower} title={t('planner.combatPower')}>
                     <span className="num">{Math.round(forecast.combatPower.total)}</span>
                   </BreakdownPopover>
                 </li>
                 <li>
-                  <span>Carry capacity</span>
-                  <BreakdownPopover breakdown={forecast.carryCapacity} title="Carry capacity" unit="kg">
+                  <span>{t('planner.carryCapacity')}</span>
+                  <BreakdownPopover
+                    breakdown={forecast.carryCapacity}
+                    title={t('planner.carryCapacity')}
+                    unit="kg"
+                  >
                     <span className="num">{Math.round(forecast.carryCapacity.total)} kg</span>
                   </BreakdownPopover>
                 </li>
                 <li>
-                  <span>Injury risk</span>
-                  <BreakdownPopover breakdown={forecast.injuryRisk} title="Injury risk">
+                  <span>{t('planner.injuryRisk')}</span>
+                  <BreakdownPopover breakdown={forecast.injuryRisk} title={t('planner.injuryRisk')}>
                     <span className={`num ${forecast.injuryRisk.total > 0.4 ? 'tone-bad' : 'tone-warn'}`}>
                       {Math.round(forecast.injuryRisk.total * 100)}%
                     </span>
                   </BreakdownPopover>
                 </li>
                 <li>
-                  <span>Death risk</span>
-                  <BreakdownPopover breakdown={forecast.deathRisk} title="Death risk">
+                  <span>{t('planner.deathRisk')}</span>
+                  <BreakdownPopover breakdown={forecast.deathRisk} title={t('planner.deathRisk')}>
                     <span className={`num ${forecast.deathRisk.total > 0.1 ? 'tone-bad' : 'tone-muted'}`}>
                       {Math.round(forecast.deathRisk.total * 100)}%
                     </span>
@@ -265,7 +290,7 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
                 </li>
               </ul>
 
-              <span className="label">Pack weight</span>
+              <span className="label">{t('planner.packWeight')}</span>
               <Bar
                 value={weight / Math.max(1, forecast.carryCapacity.total)}
                 colour={weight > forecast.carryCapacity.total ? 'var(--alarm)' : 'var(--amber)'}
@@ -274,11 +299,16 @@ export function PlannerModal({ onClose }: { onClose: () => void }) {
 
               {forecast.expectedHaul.length > 0 && (
                 <>
-                  <span className="label">Expected haul</span>
+                  <span className="label">{t('planner.expectedHaul')}</span>
                   <ul className="kv">
                     {forecast.expectedHaul.map((row) => (
                       <li key={row.resource}>
-                        <span>{RESOURCES[row.resource]?.name ?? row.resource}</span>
+                        <span>
+                          {(() => {
+                            const def = RESOURCES[row.resource];
+                            return def ? resourceName(def) : row.resource;
+                          })()}
+                        </span>
                         <span className="num">
                           {row.min}–{row.max}
                         </span>

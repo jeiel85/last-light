@@ -27,6 +27,8 @@ export interface BalanceReport {
   endingCounts: Record<string, number>;
   defeatRate: number;
   victoryRate: number;
+  /** Runs that lasted to the thaw without reaching a win condition. */
+  survivalRate: number;
   deathCauses: Record<string, number>;
   unusedFacilities: string[];
   unusedResearch: string[];
@@ -52,6 +54,9 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
 
   const defeats = results.filter((r) => r.endingKind === 'defeat').length;
   const victories = results.filter((r) => r.endingKind === 'victory' || r.endingKind === 'transcendent').length;
+  // Enduring is its own outcome. Counting it as a win hid the fact that almost nobody was
+  // actually reaching a win condition.
+  const endured = results.filter((r) => r.endingKind === 'survival').length;
 
   const maxDay = Math.max(1, ...results.map((r) => r.days));
   const survivalCurve: { day: number; alive: number }[] = [];
@@ -190,6 +195,7 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
     endingCounts,
     defeatRate: defeats / Math.max(1, runs),
     victoryRate: winRate,
+    survivalRate: endured / Math.max(1, runs),
     deathCauses,
     unusedFacilities,
     unusedResearch,
@@ -211,6 +217,7 @@ export function formatReport(report: BalanceReport): string {
   lines.push(`  median days         ${report.medianDays}`);
   lines.push(`  mean days           ${report.meanDays}`);
   lines.push(`  victory rate        ${pct(report.victoryRate)}`);
+  lines.push(`  endured rate        ${pct(report.survivalRate)}`);
   lines.push(`  defeat rate         ${pct(report.defeatRate)}`);
   lines.push('');
 

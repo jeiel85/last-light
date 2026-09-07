@@ -2,6 +2,7 @@ import type { GameState } from '../model/types';
 import { createInitialState, type NewRunOptions } from '../model/state';
 import { rngFromState } from '../core/rng';
 import { advanceDay } from '../systems/dayCycle';
+import { ENDING_BY_ID } from '../systems/endings';
 import { DEFAULT_AGENT, planDay, resolveExpeditionBeats, resolvePendingEvents, type AgentConfig } from './agent';
 
 /**
@@ -152,19 +153,16 @@ function summarise(
   };
 }
 
+/**
+ * Read the kind from the ending definition rather than restating it.
+ *
+ * This used to be a hand-written switch with `default: 'victory'`, so adding `the_thaw` —
+ * a survival ending, the baseline outcome for enduring without solving anything — silently
+ * made 82% of runs count as wins and produced a "too easy" warning about the opposite of
+ * what was happening.
+ */
 function endingKindOf(id: string): string {
-  switch (id) {
-    case 'silence':
-    case 'vault_fails':
-    case 'scattered':
-    case 'deadline_missed':
-      return 'defeat';
-    case 'signal':
-    case 'last_light':
-      return 'transcendent';
-    default:
-      return 'victory';
-  }
+  return ENDING_BY_ID[id]?.kind ?? 'defeat';
 }
 
 function errorResult(options: SimulationOptions, agent: AgentConfig, error: string): SimulationResult {

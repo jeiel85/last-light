@@ -1,3 +1,17 @@
+import { t } from '../../i18n';
+import {
+  conditionName,
+  encounterChoiceText,
+  encounterOutcomeText,
+  encounterText,
+  encounterTitle,
+  enemyName,
+  itemName,
+  locationNameForm,
+  resourceName,
+  weatherName,
+} from '../../i18n/content';
+import { RESOURCES } from '../data/resources';
 import type {
   ActiveExpedition,
   EncounterChoice,
@@ -70,6 +84,29 @@ export function loadoutCapacityBonus(loadout: ExpeditionLoadout): number {
   return bonus;
 }
 
+/** A condition's translated name, or its id when the definition has gone. */
+function conditionLabel(id: string): string {
+  const def = CONDITION_BY_ID[id];
+  return def ? conditionName(def) : id;
+}
+
+/** An item's translated name, or its id. */
+function itemLabel(id: string): string {
+  const def = ITEM_BY_ID[id];
+  return def ? itemName(def) : id;
+}
+
+/** A site's translated name. */
+function siteLabel(location: LocationInstance): string {
+  const archetype = ARCHETYPE_BY_ID[location.archetypeId];
+  return archetype ? locationNameForm(archetype, location.name) : location.name;
+}
+
+/** The current weather's translated name, for a breakdown term. */
+function weatherLabel(weather: { id: string; name: string }): string {
+  return weatherName(weather as never);
+}
+
 export function emptyLoadout(): ExpeditionLoadout {
   return { items: [], rations: 0, water: 0, ammo: 0, medicine: 0 };
 }
@@ -100,72 +137,96 @@ export function expeditionForecast(
   });
 
   const carry = new BreakdownBuilder();
-  carry.base(`Base capacity`, BALANCE.expedition.basePackCapacity);
-  carry.add(`${members.length} carriers`, members.length * BALANCE.expedition.perMemberCapacity);
+  carry.base(t('engine.exp.baseCapacity'), BALANCE.expedition.basePackCapacity);
+  carry.add(
+    t('engine.exp.carriers', { count: members.length }),
+    members.length * BALANCE.expedition.perMemberCapacity,
+  );
   for (const survivor of members) {
     const delta = T.packCapacityDelta(survivor);
-    if (delta) carry.add(`${survivor.name} (Quartermaster)`, delta);
+    if (delta) carry.add(t('engine.exp.quartermaster', { name: survivor.name }), delta);
   }
   const gearBonus = loadoutCapacityBonus(loadout);
-  if (gearBonus) carry.add('Carrying gear', gearBonus);
-  if (state.research.completed.includes('exp_load_bearing')) carry.add('Load Bearing research', 3);
+  if (gearBonus) carry.add(t('engine.exp.carryingGear'), gearBonus);
+  if (state.research.completed.includes('exp_load_bearing')) carry.add(t('engine.exp.loadBearing'), 3);
   const carryResult = carry.build({ min: 0, round: 0 });
 
   const injury = new BreakdownBuilder();
   const beats = BALANCE.expedition.beatsByRing[location.ring] ?? 4;
   const base = BALANCE.expedition.injuryBase + (location.danger - 5) * BALANCE.expedition.dangerInjuryScale;
-  injury.base('Site danger', clamp(base, 0.02, 0.6) * beats * 0.55,
-    `Danger ${Math.round(location.danger)} across roughly ${beats} situations.`);
-  injury.mul(`Weather: ${weather.name}`, weather.expeditionDanger);
+  injury.base(
+    t('engine.exp.siteDanger'),
+    clamp(base, 0.02, 0.6) * beats * 0.55,
+    t('engine.exp.dangerNote', { danger: Math.round(location.danger), beats }),
+  );
+  injury.mul(t('engine.weatherTerm', { name: weatherLabel(weather) }), weather.expeditionDanger);
   const difficultyInjury = (state.flags['mod:injuryChance'] as number | undefined) ?? 1;
-  if (difficultyInjury !== 1) injury.mul('Difficulty', difficultyInjury);
+  if (difficultyInjury !== 1) injury.mul(t('engine.difficultyTerm'), difficultyInjury);
 
   let traitFactor = 1;
   for (const survivor of members) traitFactor *= T.injuryChanceFactor(survivor);
-  if (Math.abs(traitFactor - 1) > 0.01) injury.mul('Crew traits', traitFactor);
+  if (Math.abs(traitFactor - 1) > 0.01) injury.mul(t('engine.exp.crewTraits'), traitFactor);
 
   const warnings: string[] = [];
   for (const survivor of members) {
     if (survivor.fatigue > BALANCE.needs.fatigueInjuryThreshold) {
       const extra = (survivor.fatigue - BALANCE.needs.fatigueInjuryThreshold) * BALANCE.expedition.fatigueRiskScale;
-      injury.add(`${survivor.name} is exhausted`, extra, `Fatigue ${Math.round(survivor.fatigue)}.`,
-        'Give them a rest day before dispatching.');
-      warnings.push(`${survivor.name} is exhausted (fatigue ${Math.round(survivor.fatigue)}).`);
+      injury.add(
+        t('engine.exp.memberExhausted', { name: survivor.name }),
+        extra,
+        t('engine.exp.fatigueNote', { value: Math.round(survivor.fatigue) }),
+        t('engine.exp.restFix'),
+      );
+      warnings.push(
+        t('engine.exp.warnExhausted', {
+          name: survivor.name,
+          value: Math.round(survivor.fatigue),
+        }),
+      );
     }
     if (survivor.health < 55) {
-      warnings.push(`${survivor.name} is hurt (health ${Math.round(survivor.health)}) and could die out there.`);
+      warnings.push(
+        t('engine.exp.warnHurt', { name: survivor.name, value: Math.round(survivor.health) }),
+      );
     }
     const blocking = survivor.conditions.find(
       (c) => CONDITION_BY_ID[c.id]?.blocksExpedition && c.severity > 25,
     );
-    if (blocking) warnings.push(`${survivor.name} cannot travel: ${CONDITION_BY_ID[blocking.id]?.name}.`);
+    if (blocking) {
+      warnings.push(
+        t('engine.exp.warnCannotTravel', {
+          name: survivor.name,
+          condition: conditionLabel(blocking.id),
+        }),
+      );
+    }
   }
   if (combatPower.total < location.danger * 2.4) {
-    warnings.push('Your combat power is low for this site. Expect to lose a fight if one starts.');
+    warnings.push(t('engine.exp.warnCombat'));
   }
 
   const armed = loadout.items.some((e) => (ITEM_BY_ID[e.itemId]?.power ?? 0) > 0);
-  if (!armed) warnings.push('Nobody is carrying a weapon.');
+  if (!armed) warnings.push(t('engine.exp.warnUnarmed'));
 
   const injuryResult = injury.build({ min: 0.01, max: 0.95, round: 3 });
 
   const death = new BreakdownBuilder();
-  death.base('Base lethality', injuryResult.total * BALANCE.expedition.lethalFraction);
+  death.base(t('engine.exp.baseLethality'), injuryResult.total * BALANCE.expedition.lethalFraction);
   const woundedMembers = members.filter((s) => s.health <= BALANCE.expedition.deathHealthCeiling);
   if (woundedMembers.length > 0) {
     death.mul(
-      `${woundedMembers.length} already wounded`,
+      t('engine.exp.wounded', { count: woundedMembers.length }),
       1 + woundedMembers.length * 0.55,
-      'Wounded survivors are the ones who do not come back.',
-      'Treat them in the Infirmary first.',
+      t('engine.exp.woundedNote'),
+      t('engine.exp.woundedFix'),
     );
   } else {
-    death.note('Nobody is badly hurt', 'A healthy survivor cannot die from a single bad roll.');
+    death.note(t('engine.exp.nobodyHurt'), t('engine.exp.nobodyHurtNote'));
   }
   const medics = members.filter((s) => s.skills.medicine >= 4);
-  if (medics.length > 0) death.mul('Medic on the team', 0.7);
+  if (medics.length > 0) death.mul(t('engine.exp.medic'), 0.7);
   if (loadout.medicine > 0 || loadout.items.some((e) => ITEM_BY_ID[e.itemId]?.tags.includes('medical'))) {
-    death.mul('Medical supplies packed', 0.78);
+    death.mul(t('engine.exp.medkit'), 0.78);
   }
   const deathResult = death.build({ min: 0, max: 0.75, round: 3 });
 
@@ -177,14 +238,26 @@ export function expeditionForecast(
   const waterNeeded = members.length * daysInField * BALANCE.expedition.waterPerMemberPerDay;
 
   if (loadout.rations < rationsNeeded) {
-    warnings.push(`Short ${Math.ceil(rationsNeeded - loadout.rations)} rations for ${daysInField} days in the field.`);
+    warnings.push(
+      t('engine.exp.warnRations', {
+        count: Math.ceil(rationsNeeded - loadout.rations),
+        days: daysInField,
+      }),
+    );
   }
   if (loadout.water < waterNeeded) {
-    warnings.push(`Short ${Math.ceil(waterNeeded - loadout.water)} water for ${daysInField} days in the field.`);
+    warnings.push(
+      t('engine.exp.warnWater', {
+        count: Math.ceil(waterNeeded - loadout.water),
+        days: daysInField,
+      }),
+    );
   }
   const weight = loadoutWeight(loadout);
   if (weight > carryResult.total) {
-    warnings.push(`Pack is overloaded by ${Math.round(weight - carryResult.total)}. The team will move slowly.`);
+    warnings.push(
+      t('engine.exp.warnOverloaded', { amount: Math.round(weight - carryResult.total) }),
+    );
   }
 
   const archetype = archetypeOf(location);
@@ -220,31 +293,38 @@ export function dispatchExpedition(
   loadout: ExpeditionLoadout,
 ): DispatchResult {
   const location = state.world.locations.find((l) => l.id === locationId);
-  if (!location) return { ok: false, reason: 'Unknown location' };
-  if (memberIds.length === 0) return { ok: false, reason: 'Select at least one survivor' };
-  if (memberIds.length > 4) return { ok: false, reason: 'At most four survivors per expedition' };
+  if (!location) return { ok: false, reason: t('engine.exp.unknownLocation') };
+  if (memberIds.length === 0) return { ok: false, reason: t('engine.exp.needSomeone') };
+  if (memberIds.length > 4) return { ok: false, reason: t('engine.exp.tooMany') };
   if (state.expeditions.some((e) => !e.resolved)) {
-    return { ok: false, reason: 'An expedition is already in the field' };
+    return { ok: false, reason: t('engine.exp.alreadyOut') };
   }
 
   const members: Survivor[] = [];
   for (const id of memberIds) {
     const survivor = state.survivors.find((s) => s.id === id);
-    if (!survivor) return { ok: false, reason: 'Unknown survivor' };
+    if (!survivor) return { ok: false, reason: t('engine.exp.unknownSurvivor') };
     const check = canJoinExpedition(survivor);
-    if (!check.ok) return { ok: false, reason: `${survivor.name}: ${check.reason}` };
+    if (!check.ok) {
+      return {
+        ok: false,
+        reason: t('engine.exp.memberBlocked', { name: survivor.name, reason: check.reason ?? '' }),
+      };
+    }
     members.push(survivor);
   }
 
   // Verify and remove everything being taken.
   for (const entry of loadout.items) {
     const held = state.inventory.find((i) => i.itemId === entry.itemId)?.count ?? 0;
-    if (held < entry.count) return { ok: false, reason: `Not enough ${ITEM_BY_ID[entry.itemId]?.name ?? entry.itemId}` };
+    if (held < entry.count) {
+      return { ok: false, reason: t('engine.exp.notEnoughItem', { name: itemLabel(entry.itemId) }) };
+    }
   }
-  if (state.resources.food < loadout.rations) return { ok: false, reason: 'Not enough food to pack' };
-  if (state.resources.water < loadout.water) return { ok: false, reason: 'Not enough water to pack' };
-  if (state.resources.ammo < loadout.ammo) return { ok: false, reason: 'Not enough ammunition' };
-  if (state.resources.medicine < loadout.medicine) return { ok: false, reason: 'Not enough medicine' };
+  if (state.resources.food < loadout.rations) return { ok: false, reason: t('engine.exp.notEnoughFood') };
+  if (state.resources.water < loadout.water) return { ok: false, reason: t('engine.exp.notEnoughWater') };
+  if (state.resources.ammo < loadout.ammo) return { ok: false, reason: t('engine.exp.notEnoughAmmo') };
+  if (state.resources.medicine < loadout.medicine) return { ok: false, reason: t('engine.exp.notEnoughMedicine') };
 
   for (const entry of loadout.items) removeItem(state, entry.itemId, entry.count);
   state.resources.food -= loadout.rations;
@@ -381,22 +461,22 @@ function choiceAvailability(
   choice: EncounterChoice,
 ): { ok: boolean; reason?: string } {
   if (choice.requiresItemTag && !hasItemWithTag(expedition.loadout.items, choice.requiresItemTag)) {
-    return { ok: false, reason: choice.lockedHint ?? 'You did not pack the right gear.' };
+    return { ok: false, reason: choice.lockedHint ?? t('engine.exp.noGear') };
   }
   if (choice.requiresSkill) {
     const best = Math.max(0, ...members.map((m) => m.skills[choice.requiresSkill!.skill]));
     if (best < choice.requiresSkill.min) {
-      return { ok: false, reason: choice.lockedHint ?? 'Nobody on the team is skilled enough.' };
+      return { ok: false, reason: choice.lockedHint ?? t('engine.exp.noSkill') };
     }
   }
   if (choice.requiresTrait && !members.some((m) => m.traits.includes(choice.requiresTrait!))) {
-    return { ok: false, reason: choice.lockedHint ?? 'Nobody on the team has the right instincts.' };
+    return { ok: false, reason: choice.lockedHint ?? t('engine.exp.noInstinct') };
   }
   if (choice.requiresAmmo && expedition.loadout.ammo < choice.requiresAmmo) {
-    return { ok: false, reason: choice.lockedHint ?? 'Not enough ammunition.' };
+    return { ok: false, reason: choice.lockedHint ?? t('engine.exp.noAmmo') };
   }
   if (choice.requiresResearch && !state.research.completed.includes(choice.requiresResearch)) {
-    return { ok: false, reason: choice.lockedHint ?? 'Requires research you have not completed.' };
+    return { ok: false, reason: choice.lockedHint ?? t('engine.exp.noResearch') };
   }
   return { ok: true };
 }
@@ -409,13 +489,13 @@ export interface BeatResolution {
 
 export function resolveBeat(state: GameState, choiceId: string): BeatResolution {
   const expedition = state.expeditions.find((e) => e.id === state.activeExpeditionId);
-  if (!expedition || expedition.resolved) return { ok: false, reason: 'No expedition in progress', finished: true };
+  if (!expedition || expedition.resolved) return { ok: false, reason: t('engine.exp.noExpedition'), finished: true };
   const presentation = currentBeat(state);
-  if (!presentation) return { ok: false, reason: 'No beat to resolve', finished: true };
+  if (!presentation) return { ok: false, reason: t('engine.exp.noBeat'), finished: true };
 
   const entry = presentation.choices.find((c) => c.choice.id === choiceId);
-  if (!entry) return { ok: false, reason: 'Unknown choice', finished: false };
-  if (!entry.enabled) return { ok: false, reason: entry.reason ?? 'Unavailable', finished: false };
+  if (!entry) return { ok: false, reason: t('engine.exp.unknownChoice'), finished: false };
+  if (!entry.enabled) return { ok: false, reason: entry.reason ?? t('engine.exp.unavailable'), finished: false };
 
   const choice = entry.choice;
   const rng = rngFromState(state.rng);
@@ -429,10 +509,14 @@ export function resolveBeat(state: GameState, choiceId: string): BeatResolution 
     | { skill: NonNullable<EncounterChoice['check']>['skill']; value: number; target: number; success: boolean; actor: string }
     | undefined;
 
+  /* Which branch produced the outcome, so its prose can be looked up by the same path. */
+  let branch: 'outcome' | 'onSuccess' | 'onFailure' = 'outcome';
+
   if (choice.check) {
     const actor = pickActor(rng, members, choice.check);
     if (!actor) {
       outcome = choice.onFailure ?? choice.outcome;
+      branch = choice.onFailure ? 'onFailure' : 'outcome';
     } else {
       const skillValue = actor.skills[choice.check.skill];
       const equipmentBonus = equipmentSkillBonus(expedition.loadout.items, choice.check.skill);
@@ -447,23 +531,34 @@ export function resolveBeat(state: GameState, choiceId: string): BeatResolution 
         actor: actor.name,
       };
       outcome = success ? choice.onSuccess : choice.onFailure;
-      if (!outcome) outcome = choice.outcome;
+      branch = success ? 'onSuccess' : 'onFailure';
+      if (!outcome) {
+        outcome = choice.outcome;
+        branch = 'outcome';
+      }
     }
   } else {
     outcome = choice.outcome ?? choice.onSuccess;
+    branch = choice.outcome ? 'outcome' : 'onSuccess';
   }
 
-  if (!outcome) outcome = { text: 'Nothing comes of it.', tone: 'neutral' };
+  const fallbackOutcome = !outcome;
+  if (!outcome) outcome = { text: t('engine.exp.nothingComes'), tone: 'neutral' };
 
   const summary = applyOutcome(state, expedition, rng, outcome, members);
 
   expedition.log.push({
     encounterId: presentation.encounter.id,
-    title: presentation.encounter.title,
-    text: presentation.encounter.text,
+    title: encounterTitle(presentation.encounter),
+    text: encounterText(presentation.encounter),
     choiceId: choice.id,
-    choiceLabel: choice.label,
-    outcomeText: [outcome.text, ...summary].join(' '),
+    choiceLabel: encounterChoiceText(presentation.encounter, choice).label,
+    outcomeText: [
+      fallbackOutcome
+        ? outcome.text
+        : encounterOutcomeText(presentation.encounter, choice, branch, outcome),
+      ...summary,
+    ].join(' '),
     tone: outcome.tone,
     ...(rollInfo ? { roll: rollInfo } : {}),
   });
@@ -557,18 +652,20 @@ function applyOutcome(
       const interposer = findInterposer(state, victim, members, rng.next());
       if (interposer) {
         inflictInjury(state, rng, interposer, 1.2);
-        notes.push(`${interposer.name} put themselves between ${victim.name} and it.`);
+        notes.push(
+          t('engine.exp.interposed', { interposer: interposer.name, victim: victim.name }),
+        );
         adjustRelationship(state, victim.id, interposer.id, 22);
       } else if (canSurviveFatal(state, expedition)) {
         // A surgical kit is used first; a blood bag is the fallback.
         if (!removeItem(state, 'surgical_kit', 1)) removeItem(state, 'blood_bag', 1);
         victim.health = Math.max(12, victim.health);
         applyCondition(victim, 'bleeding', 60, state.day);
-        notes.push(`${victim.name} should not have survived that. The surgical kit is gone.`);
+        notes.push(t('engine.exp.surgicalKit', { name: victim.name }));
       } else {
-        killSurvivor(state, victim, `killed by ${outcome.combat.enemy}`);
+        killSurvivor(state, victim, t('engine.death.killedBy', { enemy: enemyName(outcome.combat.enemy) }));
         expedition.casualties.push(victim.id);
-        notes.push(`${fullName(victim)} did not come back.`);
+        notes.push(t('engine.exp.didNotComeBack', { name: fullName(victim) }));
       }
     }
   }
@@ -585,7 +682,7 @@ function applyOutcome(
     if (rng.chance(clamp(chance * T.injuryChanceFactor(target), 0, 0.98))) {
       const applied = inflictInjury(state, rng, target, outcome.injury.severityScale ?? 1);
       if (applied) {
-        notes.push(`${target.name} is hurt: ${applied}.`);
+        notes.push(t('engine.exp.hurt', { name: target.name, condition: applied }));
         state.flags['expedition.someone_wounded'] = true;
       }
     }
@@ -598,7 +695,12 @@ function applyOutcome(
       const chance = outcome.illness.chance * difficulty * T.illnessChanceFactor(survivor);
       if (rng.chance(clamp(chance, 0, 0.9))) {
         if (applyCondition(survivor, outcome.illness.conditionId, rng.int(25, 45), state.day)) {
-          notes.push(`${survivor.name} has come down with ${CONDITION_BY_ID[outcome.illness.conditionId]?.name ?? 'something'}.`);
+          notes.push(
+            t('engine.exp.illness', {
+              name: survivor.name,
+              condition: conditionLabel(outcome.illness.conditionId),
+            }),
+          );
         }
       }
     }
@@ -624,7 +726,7 @@ function applyOutcome(
       else expedition.haulItems.push({ ...item });
     }
     const summary = describeLoot(loot.resources, loot.items);
-    if (summary) notes.push(`Recovered ${summary}.`);
+    if (summary) notes.push(t('engine.exp.recovered', { summary }));
   } else if (outcome.lootFactor && outcome.lootFactor < 0) {
     // Negative loot factor without draws means losing part of the accumulated haul.
     const keep = clamp(1 + outcome.lootFactor, 0, 1);
@@ -632,7 +734,7 @@ function applyOutcome(
       expedition.haulResources[key] = Math.round((expedition.haulResources[key] ?? 0) * keep * 10) / 10;
     }
     if (keep === 0) expedition.haulItems = [];
-    notes.push(keep === 0 ? 'The haul is gone.' : 'Part of the haul is gone.');
+    notes.push(keep === 0 ? t('engine.exp.haulGone') : t('engine.exp.haulPartlyGone'));
   }
 
   /* --- explicit resources and items */
@@ -703,7 +805,9 @@ function applyOutcome(
   if (outcome.flag) state.flags[outcome.flag] = true;
   if (outcome.reveal) {
     const revealed = revealLocations(state, rng, outcome.reveal);
-    if (revealed.length > 0) notes.push(`Learned of ${revealed.map((l) => l.name).join(' and ')}.`);
+    if (revealed.length > 0) {
+      notes.push(t('engine.exp.learnedOf', { names: revealed.map(siteLabel).join(' / ') }));
+    }
   }
   if (outcome.survey && location) scoutLocation(state, location.id);
   if (outcome.locationState && location) location.state = outcome.locationState;
@@ -811,7 +915,7 @@ function queueSiteEvents(state: GameState, location: LocationInstance): string[]
 
     state.events.pending.push({ eventId, scheduled: true });
     if (state.phase === 'planning') state.phase = 'events';
-    notes.push('There is something at this site that needs a decision.');
+    notes.push(t('engine.exp.siteDecision'));
   }
   return notes;
 }
@@ -857,7 +961,12 @@ export function deliverExpedition(state: GameState, expedition: ActiveExpedition
     if (!amount || amount <= 0) continue;
     const gained = grantResource(state, resource, amount);
     if (gained < amount - 0.5) {
-      notes.push(`Storage is full — ${Math.round(amount - gained)} ${resource} had to be left in the stairwell.`);
+      notes.push(
+        t('engine.exp.storageFull', {
+          amount: Math.round(amount - gained),
+          resource: resourceName(RESOURCES[resource]).toLowerCase(),
+        }),
+      );
     }
   }
   for (const item of expedition.haulItems) addItem(state, item.itemId, item.count);
@@ -878,20 +987,34 @@ export function deliverExpedition(state: GameState, expedition: ActiveExpedition
     addHistory(
       survivor,
       state.day,
-      expedition.aborted ? 'Came back early from an expedition.' : 'Returned from an expedition.',
+      expedition.aborted ? t('engine.history.returnedEarly') : t('engine.history.returned'),
       expedition.aborted ? 'neutral' : 'good',
     );
   }
 
   const haulSummary = describeLoot(expedition.haulResources, expedition.haulItems);
   notes.push(
-    haulSummary
-      ? `The team is back with ${haulSummary}.`
-      : 'The team is back with nothing to show for it.',
+    haulSummary ? t('engine.exp.backWith', { summary: haulSummary }) : t('engine.exp.backEmpty'),
   );
 
   state.expeditions = state.expeditions.filter((e) => e.id !== expedition.id);
   return notes;
+}
+
+/**
+ * Leave the expedition view.
+ *
+ * `finishExpedition` already returns the phase to planning, so this is a recovery path
+ * rather than the normal one: it exists so the expedition modal always has a way out, even
+ * if the phase and the beat queue ever disagree.
+ */
+export function dismissExpeditionView(state: GameState): void {
+  const expedition = state.expeditions.find((e) => e.id === state.activeExpeditionId);
+  if (expedition && !expedition.resolved && expedition.queue.length > 0) return;
+  state.activeExpeditionId = null;
+  if (state.phase === 'expedition') {
+    state.phase = state.events.pending.length > 0 ? 'events' : 'planning';
+  }
 }
 
 export function activeExpedition(state: GameState): ActiveExpedition | undefined {

@@ -1,3 +1,16 @@
+import { t } from '../../../i18n';
+import {
+  conditionName,
+  facilityName as facilityLabel,
+  itemName,
+  locationNameForm,
+  loreTitle,
+  researchName,
+  resourceName,
+  weatherName,
+} from '../../../i18n/content';
+import { RESOURCES } from '../../data/resources';
+import { ARCHETYPE_BY_ID } from '../../data/locations';
 import type {
   EffectTarget,
   EventEffect,
@@ -72,7 +85,7 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
       const gained = grantResource(state, effect.resource, effect.amount);
       if (Math.abs(gained) < 0.05) {
         if (effect.amount > 0 && before >= (state.resourceCaps[effect.resource] ?? Infinity)) {
-          return `Storage for ${effect.resource} is already full.`;
+          return t('engine.fx.storageFull', { name: resourceLabel(effect.resource) });
         }
         return null;
       }
@@ -90,10 +103,12 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
     case 'item': {
       if (effect.count > 0) {
         addItem(state, effect.itemId, effect.count);
-        return `+${effect.count}× ${ITEM_BY_ID[effect.itemId]?.name ?? effect.itemId}`;
+        return t('engine.fx.gainItem', { count: effect.count, name: itemLabel(effect.itemId) });
       }
       const removed = removeItem(state, effect.itemId, -effect.count);
-      return removed ? `−${-effect.count}× ${ITEM_BY_ID[effect.itemId]?.name ?? effect.itemId}` : null;
+      return removed
+        ? t('engine.fx.loseItem', { count: -effect.count, name: itemLabel(effect.itemId) })
+        : null;
     }
 
     case 'need': {
@@ -102,9 +117,14 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
       for (const survivor of targets) {
         survivor[effect.need] = clamp(survivor[effect.need] + effect.amount, 0, 100);
       }
-      const label = effect.need === 'hunger' ? 'hunger' : effect.need;
-      const names = targets.length > 2 ? 'Everyone' : targets.map((s) => s.name).join(' and ');
-      return `${names}: ${effect.amount > 0 ? '+' : ''}${effect.amount} ${label}`;
+      const names =
+        targets.length > 2 ? t('engine.fx.everyone') : targets.map((s) => s.name).join(', ');
+      return t('engine.fx.need', {
+        names,
+        need: t(`meter.${effect.need}`),
+        sign: effect.amount > 0 ? '+' : '',
+        amount: effect.amount,
+      });
     }
 
     case 'injure': {
@@ -116,7 +136,10 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
         }
       }
       if (names.length === 0) return null;
-      return `${names.join(', ')}: ${CONDITION_BY_ID[effect.conditionId]?.name ?? effect.conditionId}`;
+      return t('engine.fx.injure', {
+        names: names.join(', '),
+        condition: conditionLabel(effect.conditionId),
+      });
     }
 
     case 'cure': {
@@ -132,7 +155,7 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
       }
       if (cured.length === 0) return null;
       state.stats.illnessesCured += cured.length;
-      return `${cured.join(', ')} recovered.`;
+      return t('engine.fx.cure', { names: cured.join(', ') });
     }
 
     case 'kill': {
@@ -142,7 +165,7 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
         names.push(fullName(survivor));
         killSurvivor(state, survivor, effect.cause);
       }
-      return names.length > 0 ? `${names.join(', ')} died.` : null;
+      return names.length > 0 ? t('engine.fx.died', { names: names.join(', ') }) : null;
     }
 
     case 'recruit': {
@@ -162,7 +185,7 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
         state.stats.peakSurvivors = Math.max(state.stats.peakSurvivors, livingSurvivors(state).length);
         names.push(`${survivor.name} ${survivor.surname} (${survivor.occupation})`);
       }
-      return `Joined the vault: ${names.join(', ')}.`;
+      return t('engine.fx.joined', { names: names.join(', ') });
     }
 
     case 'trait': {
@@ -178,10 +201,10 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
         } else if (!survivor.traits.includes(effect.traitId)) {
           survivor.traits.push(effect.traitId);
           changed.push(survivor.name);
-          addHistory(survivor, state.day, `Changed by what happened.`, 'neutral');
+          addHistory(survivor, state.day, t('engine.fx.changedHistory'), 'neutral');
         }
       }
-      return changed.length > 0 ? `${changed.join(', ')} is changed by it.` : null;
+      return changed.length > 0 ? t('engine.fx.changed', { names: changed.join(', ') }) : null;
     }
 
     case 'facilityDamage': {
@@ -193,7 +216,10 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
       facility.condition = clamp(facility.condition - effect.amount, 0, 100);
       if (facility.condition <= 0) facility.status = 'offline';
       else if (facility.condition < 40 && facility.status === 'operational') facility.status = 'damaged';
-      return `${FACILITY_BY_ID[facility.defId]?.name ?? facility.defId} damaged (−${effect.amount} condition).`;
+      return t('engine.fx.facilityDamage', {
+        name: facilityLabelOf(facility.defId),
+        amount: effect.amount,
+      });
     }
 
     case 'facilityRepair': {
@@ -204,20 +230,23 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
       const facility = effect.facilityId ? candidates[0]! : rng.pick(candidates);
       facility.condition = clamp(facility.condition + effect.amount, 0, 100);
       if (facility.condition > 40 && facility.status === 'damaged') facility.status = 'operational';
-      return `${FACILITY_BY_ID[facility.defId]?.name ?? facility.defId} repaired (+${effect.amount} condition).`;
+      return t('engine.fx.facilityRepair', {
+        name: facilityLabelOf(facility.defId),
+        amount: effect.amount,
+      });
     }
 
     case 'facilityGrant': {
       const existing = state.facilities.find((f) => f.defId === effect.facilityId);
       if (existing) {
         existing.level = Math.max(existing.level, effect.level ?? existing.level);
-        return `${FACILITY_BY_ID[effect.facilityId]?.name} improved.`;
+        return t('engine.fx.facilityImproved', { name: facilityLabelOf(effect.facilityId) });
       }
       const occupied = new Set(state.facilities.map((f) => f.slotId));
       const def = FACILITY_BY_ID[effect.facilityId];
       if (!def) return null;
       const slot = state.slots.find((s) => !s.sealed && !occupied.has(s.id) && def.decks.includes(s.deck));
-      if (!slot) return `There is no room for a ${def.name}.`;
+      if (!slot) return t('engine.fx.noRoom', { name: facilityLabel(def) });
       state.idCounter += 1;
       state.facilities.push({
         id: `f${state.idCounter}`,
@@ -240,11 +269,11 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
       if (effect.grant && !state.research.completed.includes(effect.researchId)) {
         state.research.completed.push(effect.researchId);
         state.stats.researchCompleted += 1;
-        return `Learned: ${RESEARCH_BY_ID[effect.researchId]?.name ?? effect.researchId}.`;
+        return t('engine.fx.learned', { name: researchLabel(effect.researchId) });
       }
       if (effect.insight) {
         state.research.insight += effect.insight;
-        return `+${effect.insight} insight`;
+        return t('engine.fx.insight', { amount: effect.insight });
       }
       return null;
     }
@@ -261,7 +290,7 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
         }
       }
       if (applied === 0) return null;
-      return effect.amount > 0 ? 'The crew is closer for it.' : 'It leaves a mark between them.';
+      return effect.amount > 0 ? t('engine.fx.closer') : t('engine.fx.strained');
     }
 
     case 'flag': {
@@ -278,7 +307,7 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
       if (state.lore.includes(effect.loreId)) return null;
       state.lore.push(effect.loreId);
       state.stats.loreFound += 1;
-      return `Archive entry recovered: ${LORE_BY_ID[effect.loreId]?.title ?? effect.loreId}.`;
+      return t('engine.fx.lore', { name: loreLabel(effect.loreId) });
     }
 
     case 'revealLocation': {
@@ -289,11 +318,11 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
         if (!target) return null;
         target.state = 'rumoured';
         target.knowledge = Math.max(target.knowledge, 1);
-        return `Located: ${target.name}.`;
+        return t('engine.fx.located', { names: siteLabel(target) });
       }
       const revealed = revealLocations(state, rng, effect.count ?? 1, effect.ring);
       if (revealed.length === 0) return null;
-      return `Located: ${revealed.map((l) => l.name).join(', ')}.`;
+      return t('engine.fx.located', { names: revealed.map(siteLabel).join(', ') });
     }
 
     case 'locationState': {
@@ -302,7 +331,10 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
         : state.world.locations.find((l) => l.state === 'explored');
       if (!target) return null;
       target.state = effect.state;
-      return `${target.name} is now ${effect.state}.`;
+      return t('engine.fx.locationState', {
+        name: siteLabel(target),
+        state: t(`map.state.${effect.state}`),
+      });
     }
 
     case 'schedule': {
@@ -330,7 +362,7 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
 
     case 'weather': {
       state.weather = { id: effect.weatherId, streak: 1, forecast: null };
-      return `The weather turns: ${WEATHER[effect.weatherId].name}.`;
+      return t('engine.fx.weather', { name: weatherName(WEATHER[effect.weatherId]) });
     }
 
     case 'ending': {
@@ -339,6 +371,40 @@ export function applyEffect(effect: EventEffect, ctx: EffectContext): string | n
     }
   }
 }
+
+/* -------------------------------------------------------------- labels */
+
+const itemLabel = (id: string): string => {
+  const def = ITEM_BY_ID[id];
+  return def ? itemName(def) : id;
+};
+
+const conditionLabel = (id: string): string => {
+  const def = CONDITION_BY_ID[id];
+  return def ? conditionName(def) : id;
+};
+
+const facilityLabelOf = (id: string): string => {
+  const def = FACILITY_BY_ID[id];
+  return def ? facilityLabel(def) : id;
+};
+
+const researchLabel = (id: string): string => {
+  const def = RESEARCH_BY_ID[id];
+  return def ? researchName(def) : id;
+};
+
+const loreLabel = (id: string): string => {
+  const def = LORE_BY_ID[id];
+  return def ? loreTitle(def) : id;
+};
+
+const resourceLabel = (id: ResourceId): string => resourceName(RESOURCES[id]).toLowerCase();
+
+const siteLabel = (location: { archetypeId: string; name: string }): string => {
+  const archetype = ARCHETYPE_BY_ID[location.archetypeId];
+  return archetype ? locationNameForm(archetype, location.name) : location.name;
+};
 
 export function applyEffects(effects: readonly EventEffect[] | undefined, ctx: EffectContext): string[] {
   if (!effects) return [];
@@ -378,11 +444,11 @@ export function payChoiceCost(
   const notes: string[] = [];
   for (const [resource, amount] of Object.entries(cost.resources ?? {}) as [ResourceId, number][]) {
     state.resources[resource] = Math.max(0, state.resources[resource] - amount);
-    notes.push(`−${amount} ${resource}`);
+    notes.push(t('engine.fx.loseResource', { amount, name: resourceLabel(resource) }));
   }
   for (const entry of cost.items ?? []) {
     removeItem(state, entry.itemId, entry.count);
-    notes.push(`−${entry.count}× ${ITEM_BY_ID[entry.itemId]?.name ?? entry.itemId}`);
+    notes.push(t('engine.fx.loseItem', { count: entry.count, name: itemLabel(entry.itemId) }));
   }
   return notes;
 }

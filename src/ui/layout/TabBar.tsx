@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PRIMARY_PANELS, SECONDARY_PANELS, useUiStore, type PanelId } from '@store/uiStore';
 import { Icon, type IconName } from '@ui/components/Icon';
+import { useT } from '@ui/hooks/useTranslation';
 
 const PANEL_ICONS: Record<PanelId, IconName> = {
   dashboard: 'gauge',
@@ -24,6 +25,7 @@ export function TabBar() {
   const setPanel = useUiStore((s) => s.setPanel);
   const openModal = useUiStore((s) => s.openModal);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const t = useT();
 
   const secondaryActive = SECONDARY_PANELS.some((p) => p.id === panel);
 
@@ -48,16 +50,16 @@ export function TabBar() {
           <div
             className="sheet"
             role="dialog"
-            aria-label="More"
+            aria-label={t('panel.more')}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="label sheet-head">More</h2>
+            <h2 className="label sheet-head">{t('panel.more')}</h2>
             <ul className="sheet-list">
               {SECONDARY_PANELS.map((p) => (
                 <li key={p.id}>
                   <button type="button" className="sheet-item" onClick={() => go(p.id)}>
                     <Icon name={PANEL_ICONS[p.id]} size={20} />
-                    <span>{p.label}</span>
+                    <span>{t(p.messageKey)}</span>
                   </button>
                 </li>
               ))}
@@ -71,7 +73,7 @@ export function TabBar() {
                   }}
                 >
                   <Icon name="help" size={20} />
-                  <span>How to play</span>
+                  <span>{t('menu.howToPlay')}</span>
                 </button>
               </li>
             </ul>
@@ -79,7 +81,7 @@ export function TabBar() {
         </div>
       )}
 
-      <nav className="tabbar" aria-label="Panels">
+      <nav className="tabbar" aria-label={t('panel.nav')}>
         {PRIMARY_PANELS.map((p) => (
           <button
             key={p.id}
@@ -89,7 +91,7 @@ export function TabBar() {
             aria-current={p.id === panel ? 'page' : undefined}
           >
             <Icon name={PANEL_ICONS[p.id]} size={20} />
-            <span className="tabbar-label">{p.label}</span>
+            <span className="tabbar-label">{t(p.messageKey)}</span>
           </button>
         ))}
         <button
@@ -99,13 +101,16 @@ export function TabBar() {
           aria-expanded={sheetOpen}
         >
           <Icon name="more" size={20} />
-          <span className="tabbar-label">{secondaryActive ? PANELS_LABEL(panel) : 'More'}</span>
+          <span className="tabbar-label">
+            {secondaryActive ? t(secondaryKey(panel)) : t('panel.more')}
+          </span>
         </button>
       </nav>
     </>
   );
 }
 
-function PANELS_LABEL(id: PanelId): string {
-  return SECONDARY_PANELS.find((p) => p.id === id)?.label ?? 'More';
+/** The sheet button borrows the label of whichever secondary panel is currently open. */
+function secondaryKey(id: PanelId) {
+  return SECONDARY_PANELS.find((p) => p.id === id)?.messageKey ?? ('panel.more' as const);
 }

@@ -19,6 +19,15 @@ import { Button } from '@ui/components/Button';
 import { BreakdownPopover } from '@ui/components/BreakdownPopover';
 import { Portrait } from '@ui/components/Portrait';
 import { Guidance } from '@ui/components/Guidance';
+import { useT } from '@ui/hooks/useTranslation';
+import {
+  facilityName as facilityLabel,
+  researchName,
+  resourceFailure,
+  resourceName,
+  weatherDescription,
+  weatherName,
+} from '@i18n/content';
 
 interface Alert {
   id: string;
@@ -33,6 +42,7 @@ export function Dashboard() {
   const setPanel = useUiStore((s) => s.setPanel);
   const selectSurvivor = useUiStore((s) => s.selectSurvivor);
   const openModal = useUiStore((s) => s.openModal);
+  const t = useT();
 
   const crew = useMemo(() => crewSummary(state), [state]);
   const power = useMemo(() => Facilities.powerReport(state), [state]);
@@ -61,17 +71,24 @@ export function Dashboard() {
       const spending = net < -0.05;
 
       if (value <= 0 && spending) {
-        out.push({ id: `out-${def.id}`, tone: 'bad', text: `${def.name} is gone. ${def.failure}` });
+        out.push({
+          id: `out-${def.id}`,
+          tone: 'bad',
+          text: t('alert.gone', { name: resourceName(def), failure: resourceFailure(def) }),
+        });
       } else if (spending) {
         const daysLeft = Math.floor(value / -net);
         if (daysLeft <= 4) {
+          const name = resourceName(def);
           out.push({
             id: `low-${def.id}`,
             tone: daysLeft <= 1 ? 'bad' : 'warn',
             text:
               daysLeft <= 0
-                ? `${def.name} runs out tonight.`
-                : `${def.name} runs out in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`,
+                ? t('alert.runsOutTonight', { name })
+                : daysLeft === 1
+                  ? t('alert.runsOutInOne', { name })
+                  : t('alert.runsOutIn', { name, days: daysLeft }),
           });
         }
       }
@@ -80,8 +97,11 @@ export function Dashboard() {
       out.push({
         id: 'power',
         tone: 'warn',
-        text: `Power is short by ${Math.round(power.deficit)}. ${power.brownedOut.length} facilities browned out.`,
-        fix: { label: 'Base', go: () => setPanel('base') },
+        text: t('alert.powerShort', {
+          amount: Math.round(power.deficit),
+          count: power.brownedOut.length,
+        }),
+        fix: { label: t('panel.base'), go: () => setPanel('base') },
       });
     }
     for (const survivor of Survivors.livingSurvivors(state)) {
@@ -89,18 +109,22 @@ export function Dashboard() {
         out.push({
           id: `hurt-${survivor.id}`,
           tone: 'bad',
-          text: `${survivor.name} is badly hurt.`,
-          fix: { label: 'Crew', go: () => setPanel('crew') },
+          text: t('alert.badlyHurt', { name: survivor.name }),
+          fix: { label: t('panel.crew'), go: () => setPanel('crew') },
         });
       } else if (survivor.conditions.some((c) => c.severity > 60 && !c.treated)) {
         out.push({
           id: `ill-${survivor.id}`,
           tone: 'warn',
-          text: `${survivor.name} needs treatment.`,
-          fix: { label: 'Crew', go: () => setPanel('crew') },
+          text: t('alert.needsTreatment', { name: survivor.name }),
+          fix: { label: t('panel.crew'), go: () => setPanel('crew') },
         });
       } else if (survivor.morale < 25) {
-        out.push({ id: `morale-${survivor.id}`, tone: 'warn', text: `${survivor.name} is close to breaking.` });
+        out.push({
+          id: `morale-${survivor.id}`,
+          tone: 'warn',
+          text: t('alert.breaking', { name: survivor.name }),
+        });
       }
     }
     const idle = Survivors.livingSurvivors(state).filter((s) => s.assignment.kind === 'idle');
@@ -108,8 +132,8 @@ export function Dashboard() {
       out.push({
         id: 'idle',
         tone: 'info',
-        text: `${idle.length} ${idle.length === 1 ? 'person is' : 'people are'} unassigned.`,
-        fix: { label: 'Crew', go: () => setPanel('crew') },
+        text: idle.length === 1 ? t('alert.idleOne') : t('alert.idleMany', { count: idle.length }),
+        fix: { label: t('panel.crew'), go: () => setPanel('crew') },
       });
     }
     for (const facility of state.facilities) {
@@ -117,18 +141,21 @@ export function Dashboard() {
         out.push({
           id: `dmg-${facility.id}`,
           tone: 'warn',
-          text: `${Facilities.facilityDef(facility).name} has broken down.`,
-          fix: { label: 'Base', go: () => setPanel('base') },
+          text: t('alert.brokenDown', { name: facilityLabel(Facilities.facilityDef(facility)) }),
+          fix: { label: t('panel.base'), go: () => setPanel('base') },
         });
       }
     }
     return out.slice(0, 8);
-  }, [state, flows, power, setPanel]);
+  }, [state, flows, power, setPanel, t]);
 
   const weather = WEATHER[state.weather.id];
   const away = state.expeditions.filter((e) => !e.resolved);
   const activeResearch = state.research.active;
-  const activeResearchName = activeResearch ? (RESEARCH_BY_ID[activeResearch.id]?.name ?? activeResearch.id) : null;
+  const activeResearchDef = activeResearch ? RESEARCH_BY_ID[activeResearch.id] : undefined;
+  const activeResearchName = activeResearchDef
+    ? researchName(activeResearchDef)
+    : (activeResearch?.id ?? null);
 
   return (
     <div className="grid-2">
@@ -136,104 +163,95 @@ export function Dashboard() {
         notes={[
           {
             id: 'intro.day',
-            title: 'One decision at a time',
-            body: (
-              <>
-                Assign your crew, spend what you can afford, then press <strong>End day</strong>.
-                Everything else — production, hunger, wear, and whatever the world sends — resolves
-                overnight.
-              </>
-            ),
+            title: t('guidance.day.title'),
+            body: t('guidance.day.body'),
           },
           {
             id: 'intro.shortage',
             when: alerts.some((a) => a.id.startsWith('low-') || a.id.startsWith('out-')),
-            title: 'Something is running out',
-            body: (
-              <>
-                A store being spent faster than it is replaced has a deadline on it. The gauge counts
-                the days left at the current rate; the breakdown behind it names what to change.
-              </>
-            ),
+            title: t('guidance.shortage.title'),
+            body: t('guidance.shortage.body'),
           },
           {
             id: 'intro.inspect',
             when: Boolean(report),
-            title: 'Every number opens up',
-            body: (
-              <>
-                The <em>in</em> and <em>out</em> chips beside each store show exactly which facilities
-                and people produced that figure. Nothing here is a mystery number.
-              </>
-            ),
+            title: t('guidance.inspect.title'),
+            body: t('guidance.inspect.body'),
           },
           {
             id: 'intro.horizon',
             when: state.day >= BALANCE.endings.attritionFromDay,
-            title: 'The winter is breaking',
-            body: (
-              <>
-                Around day {BALANCE.endings.horizonDay} the thaw comes and the run resolves however it
-                stands. Until then everything wears faster — this is the stretch where a vault that has
-                been coasting starts to come apart.
-              </>
-            ),
+            title: t('guidance.horizon.title'),
+            body: t('guidance.horizon.body', { day: BALANCE.endings.horizonDay }),
           },
         ]}
       />
 
-      <Panel title="Situation" note={`Day ${state.day}`}>
+      <Panel title={t('dash.situation')} note={`${t('topbar.day')} ${state.day}`}>
         <div className="stat-row">
-          <Stat label="Crew" value={Survivors.livingSurvivors(state).length} />
-          <Stat label="Morale" value={Math.round(crew.avgMorale)} tone={crew.avgMorale < 35 ? 'bad' : undefined} />
-          <Stat label="Health" value={Math.round(crew.avgHealth)} tone={crew.avgHealth < 45 ? 'bad' : undefined} />
-          <Stat label="Working" value={crew.workingCount} />
-          <Stat label="Resting" value={crew.restingCount} />
-          <Stat label="Away" value={away.length} />
+          <Stat label={t('dash.crew')} value={Survivors.livingSurvivors(state).length} />
+          <Stat
+            label={t('dash.morale')}
+            value={Math.round(crew.avgMorale)}
+            tone={crew.avgMorale < 35 ? 'bad' : undefined}
+          />
+          <Stat
+            label={t('dash.health')}
+            value={Math.round(crew.avgHealth)}
+            tone={crew.avgHealth < 45 ? 'bad' : undefined}
+          />
+          <Stat label={t('dash.working')} value={crew.workingCount} />
+          <Stat label={t('dash.resting')} value={crew.restingCount} />
+          <Stat label={t('dash.away')} value={away.length} />
         </div>
         <hr className="divider" />
         <div className="power-row">
-          <span className="label">Power</span>
-          <BreakdownPopover breakdown={power.capacity} title="Power capacity" unit="kW">
+          <span className="label">{t('dash.power')}</span>
+          <BreakdownPopover breakdown={power.capacity} title={t('dash.powerCapacity')} unit="kW">
             <span className="num">{Math.round(power.capacity.total)}</span>
           </BreakdownPopover>
-          <span className="tone-muted">supply /</span>
-          <BreakdownPopover breakdown={power.demand} title="Power demand" unit="kW">
+          <span className="tone-muted">{t('dash.supply')}</span>
+          <BreakdownPopover breakdown={power.demand} title={t('dash.powerDemand')} unit="kW">
             <span className={`num ${power.deficit > 0 ? 'tone-bad' : ''}`}>{Math.round(power.demand.total)}</span>
           </BreakdownPopover>
-          <span className="tone-muted">draw</span>
+          <span className="tone-muted">{t('dash.draw')}</span>
         </div>
         <Bar
           value={power.demand.total / Math.max(1, power.capacity.total)}
           colour={power.deficit > 0 ? 'var(--alarm)' : 'var(--res-power)'}
           height={6}
-          label="Power load"
+          label={t('dash.powerLoad')}
         />
         <hr className="divider" />
         <p className="prose">
-          <strong>{weather.name}.</strong> {weather.description}
+          <strong>{weatherName(weather)}.</strong> {weatherDescription(weather)}
         </p>
         {activeResearch ? (
           <div className="research-strip">
-            <span className="label">Researching</span>
+            <span className="label">{t('dash.researching')}</span>
             <span className="truncate">{activeResearchName}</span>
             <Bar
               value={activeResearch.progress / Math.max(1, activeResearch.required)}
               colour="var(--violet)"
             />
-            <BreakdownPopover breakdown={insight} title="Insight per day">
-              <span className="num">{Math.round(insight.total * 10) / 10}/day</span>
+            <BreakdownPopover breakdown={insight} title={t('dash.insightPerDay')}>
+              <span className="num">
+                {t('dash.insightRate', { value: Math.round(insight.total * 10) / 10 })}
+              </span>
             </BreakdownPopover>
           </div>
         ) : (
           <Button size="sm" onClick={() => setPanel('research')}>
-            No active research — choose a project
+            {t('dash.noResearch')}
           </Button>
         )}
       </Panel>
 
-      <Panel title="Attention" note={alerts.length ? String(alerts.length) : 'clear'}>
-        {alerts.length === 0 && <EmptyState>Nothing is on fire. That will change.</EmptyState>}
+      <Panel
+        title={t('dash.attention')}
+        note={alerts.length ? String(alerts.length) : t('dash.attentionClear')}
+      >
+        {alerts.length === 0 && <EmptyState>{t('dash.allWell')}</EmptyState>}
         <ul className="alert-list">
           {alerts.map((alert) => (
             <li key={alert.id} className={`alert alert-${alert.tone}`}>
@@ -248,8 +266,8 @@ export function Dashboard() {
         </ul>
       </Panel>
 
-      <Panel title="Overnight" note={report ? `Day ${report.day}` : '—'}>
-        {!report && <EmptyState>End your first day to see the night report.</EmptyState>}
+      <Panel title={t('dash.overnight')} note={report ? `${t('topbar.day')} ${report.day}` : '—'}>
+        {!report && <EmptyState>{t('dash.firstNight')}</EmptyState>}
         {report && (
           <>
             {report.deaths.length > 0 && (
@@ -276,7 +294,7 @@ export function Dashboard() {
                 </li>
               ))}
               {report.survivorNotes.length === 0 && report.facilityNotes.length === 0 && (
-                <li className="tone-muted">A quiet night.</li>
+                <li className="tone-muted">{t('dash.quietNight')}</li>
               )}
             </ul>
           </>
@@ -284,10 +302,10 @@ export function Dashboard() {
       </Panel>
 
       <Panel
-        title="Crew at a glance"
+        title={t('dash.crewGlance')}
         actions={
           <Button size="sm" onClick={() => setPanel('crew')}>
-            Manage
+            {t('dash.manage')}
           </Button>
         }
       >
@@ -311,13 +329,32 @@ export function Dashboard() {
                   <span className="col grow">
                     <span className="mini-crew-name truncate">{survivor.name}</span>
                     <span className="mini-crew-role tone-muted truncate">
-                      {facility ? Facilities.facilityDef(facility).name : survivor.assignment.kind}
+                      {facility
+                        ? facilityLabel(Facilities.facilityDef(facility))
+                        : survivor.assignment.kind === 'rest'
+                          ? t('crew.rest')
+                          : t('crew.unassigned')}
                     </span>
                   </span>
                   <span className="mini-crew-bars">
-                    <Bar value={survivor.health / 100} colour="var(--alarm)" height={3} label="Health" />
-                    <Bar value={survivor.morale / 100} colour="var(--phosphor)" height={3} label="Morale" />
-                    <Bar value={survivor.fatigue / 100} colour="var(--amber)" height={3} label="Fatigue" />
+                    <Bar
+                      value={survivor.health / 100}
+                      colour="var(--alarm)"
+                      height={3}
+                      label={t('meter.health')}
+                    />
+                    <Bar
+                      value={survivor.morale / 100}
+                      colour="var(--phosphor)"
+                      height={3}
+                      label={t('meter.morale')}
+                    />
+                    <Bar
+                      value={survivor.fatigue / 100}
+                      colour="var(--amber)"
+                      height={3}
+                      label={t('meter.fatigue')}
+                    />
                   </span>
                 </button>
               </li>

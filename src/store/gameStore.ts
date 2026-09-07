@@ -25,6 +25,7 @@ import {
 } from '@engine';
 import { autosave, deleteSlot, readMeta, readSlot, writeMeta } from '@save/serialize';
 import { AUTOSAVE_SLOT } from '@save/schema';
+import { setLocale } from '@i18n';
 import type { Settings } from '@save/schema';
 import { DEFAULT_SETTINGS } from '@save/schema';
 
@@ -84,6 +85,7 @@ interface GameStoreState {
   /* expedition */
   dispatch: (locationId: string, members: SurvivorId[], loadout: ExpeditionLoadout) => ActionResult;
   resolveBeat: (choiceId: string) => ActionResult;
+  closeExpedition: () => void;
   scout: (locationId: string) => ActionResult;
 
   /* time */
@@ -123,6 +125,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   async bootstrap() {
     const { profile, settings } = await readMeta();
+    setLocale(settings.locale);
 
     /*
      * A finished run is restored on load so its report survives a refresh. An ending is the
@@ -350,6 +353,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const state = get().state;
     if (state) void autosave(state);
     return { ok: result.ok, ...(result.reason ? { message: result.reason } : {}) };
+  },
+
+  closeExpedition() {
+    mutate(get, set, (draft) => {
+      Expedition.dismissExpeditionView(draft);
+    });
+    const state = get().state;
+    if (state) void autosave(state);
   },
 
   scout(locationId) {

@@ -23,7 +23,9 @@
       "@engine": ["./src/engine/index.ts"],
       "@store/*": ["./src/store/*"],
       "@save/*": ["./src/save/*"],
-      "@ui/*": ["./src/ui/*"]
+      "@ui/*": ["./src/ui/*"],
+      "@i18n": ["./src/i18n/index.ts"],
+      "@i18n/*": ["./src/i18n/*"]
     },
     "types": ["vite/client", "vitest/globals"]
   },
