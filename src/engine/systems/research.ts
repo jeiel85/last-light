@@ -73,8 +73,20 @@ export interface ResearchAvailability {
   ok: boolean;
   reason?: string;
   cost: number;
+  /**
+   * The node's own price plus every prerequisite still outstanding.
+   *
+   * For a node you can start today this equals `cost`. For a locked one it is the honest
+   * price, and the two diverge sharply: the cheapest tier-3 node lists at 39 insight and
+   * costs 76 all-in, and the mean tier-3 chain is 111 against the ~93 a 60-day run
+   * generates. Showing only the list price told a player a tier was one project away when
+   * it was three and unaffordable.
+   */
+  chainCost: number;
   /** Days to complete at the current insight rate. */
   estimatedDays: number | null;
+  /** Days to complete the whole outstanding chain at the current insight rate. */
+  chainDays: number | null;
   completed: boolean;
   active: boolean;
 }
@@ -84,33 +96,56 @@ export function researchCost(state: GameState, node: ResearchDef): number {
   return Math.round(node.cost * difficulty);
 }
 
+/**
+ * Input : a node. Output: its cost plus that of every prerequisite not yet completed.
+ * Why   : prerequisites form a small DAG — `def_kill_box` reaches `def_ranged_arms` down
+ *         two separate branches — so a node already counted must not be counted again.
+ *         `seen` carries across the recursion for exactly that.
+ */
+export function researchChainCost(
+  state: GameState,
+  node: ResearchDef,
+  seen: Set<ResearchId> = new Set(),
+): number {
+  if (seen.has(node.id) || state.research.completed.includes(node.id)) return 0;
+  seen.add(node.id);
+  let total = researchCost(state, node);
+  for (const id of node.requires) {
+    const prerequisite = RESEARCH_BY_ID[id];
+    if (prerequisite) total += researchChainCost(state, prerequisite, seen);
+  }
+  return total;
+}
+
 export function researchAvailability(state: GameState, node: ResearchDef): ResearchAvailability {
   const completed = state.research.completed.includes(node.id);
   const active = state.research.active?.id === node.id;
   const cost = researchCost(state, node);
+  const chainCost = researchChainCost(state, node);
   const rate = insightRate(state).total;
   const estimatedDays = rate > 0 ? Math.max(1, Math.ceil(cost / rate)) : null;
+  const chainDays = rate > 0 ? Math.max(1, Math.ceil(chainCost / rate)) : null;
 
-  if (completed) return { node, ok: false, reason: t('engine.rsr.completed'), cost, estimatedDays, completed, active };
-  if (active) return { node, ok: false, reason: t('engine.rsr.inProgress'), cost, estimatedDays, completed, active };
+  if (completed) return { node, ok: false, reason: t('engine.rsr.completed'), cost, chainCost, estimatedDays, chainDays, completed, active };
+  if (active) return { node, ok: false, reason: t('engine.rsr.inProgress'), cost, chainCost, estimatedDays, chainDays, completed, active };
 
   const missing = node.requires.filter((id) => !state.research.completed.includes(id));
   if (missing.length > 0) {
     const names = missing.map((id) => RESEARCH_BY_ID[id]?.name ?? id).join(', ');
-    return { node, ok: false, reason: t('engine.rsr.requires', { names }), cost, estimatedDays, completed, active };
+    return { node, ok: false, reason: t('engine.rsr.requires', { names }), cost, chainCost, estimatedDays, chainDays, completed, active };
   }
   if (node.requiresFlag && !state.flags[node.requiresFlag]) {
-    return { node, ok: false, reason: t('engine.rsr.notEnough'), cost, estimatedDays, completed, active };
+    return { node, ok: false, reason: t('engine.rsr.notEnough'), cost, chainCost, estimatedDays, chainDays, completed, active };
   }
   const lab = findFacility(state, 'laboratory');
   const labLevel = lab && lab.status !== 'building' ? lab.level : 0;
   if (node.tier >= 2 && labLevel < 1) {
-    return { node, ok: false, reason: t('engine.rsr.requiresLab'), cost, estimatedDays, completed, active };
+    return { node, ok: false, reason: t('engine.rsr.requiresLab'), cost, chainCost, estimatedDays, chainDays, completed, active };
   }
   if (node.tier >= 3 && labLevel < 2) {
-    return { node, ok: false, reason: t('engine.rsr.requiresLab2'), cost, estimatedDays, completed, active };
+    return { node, ok: false, reason: t('engine.rsr.requiresLab2'), cost, chainCost, estimatedDays, chainDays, completed, active };
   }
-  return { node, ok: true, cost, estimatedDays, completed, active };
+  return { node, ok: true, cost, chainCost, estimatedDays, chainDays, completed, active };
 }
 
 export function startResearch(state: GameState, id: ResearchId): { ok: boolean; reason?: string } {

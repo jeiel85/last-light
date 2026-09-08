@@ -4,7 +4,8 @@ import { rngFromState } from '../core/rng';
 import { advanceDay } from '../systems/dayCycle';
 import { ENDING_BY_ID } from '../systems/endings';
 import { insightRate } from '../systems/research';
-import { findFacility, staffOf } from '../systems/facilities';
+import { canBuild, findFacility, staffOf } from '../systems/facilities';
+import { FACILITIES } from '../data/facilities';
 import { DEFAULT_AGENT, planDay, resolveExpeditionBeats, resolvePendingEvents, type AgentConfig } from './agent';
 
 /**
@@ -45,6 +46,14 @@ export interface SimulationResult {
   peakResources: Record<string, number>;
   /** Facility def ids that were ever built. */
   facilitiesUsed: string[];
+  /**
+   * Facility def ids that `canBuild` accepted at some point, whether or not one went up.
+   *
+   * "Never built" on its own cannot tell a facility the player could never unlock from one
+   * they could build any day and never wanted. Those are a content gate and a payoff
+   * problem respectively, and the fix for one is no use against the other.
+   */
+  facilitiesBuildable: string[];
   researchUsed: string[];
   eventsUsed: string[];
   /** Day-by-day food and water, for starvation-curve analysis. */
@@ -84,6 +93,7 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
   let labStaffedDays = 0;
   let labMaxLevel = 0;
   const facilitiesUsed = new Set<string>();
+  const facilitiesBuildable = new Set<string>();
   const researchUsed = new Set<string>();
   const eventsUsed = new Set<string>();
 
@@ -107,6 +117,13 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
       }
 
       for (const facility of state.facilities) facilitiesUsed.add(facility.defId);
+      for (const def of FACILITIES) {
+        // Only ask about the ones still unproven; `canBuild` is not free and the answer
+        // for a facility already seen as buildable cannot change back to interesting.
+        if (!facilitiesBuildable.has(def.id) && canBuild(state, def.id).ok) {
+          facilitiesBuildable.add(def.id);
+        }
+      }
       for (const id of state.research.completed) researchUsed.add(id);
       for (const record of state.events.history) eventsUsed.add(record.eventId);
       for (const [key, value] of Object.entries(state.resources)) {
@@ -119,7 +136,7 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
     }
   } catch (error) {
     return {
-      ...summarise(state, agent, facilitiesUsed, researchUsed, eventsUsed, peakResources, foodSeries, waterSeries, { insightGenerated, labOperationalDays, labStaffedDays, labMaxLevel }),
+      ...summarise(state, agent, facilitiesUsed, facilitiesBuildable, researchUsed, eventsUsed, peakResources, foodSeries, waterSeries, { insightGenerated, labOperationalDays, labStaffedDays, labMaxLevel }),
       error: error instanceof Error ? `${error.message}\n${error.stack}` : String(error),
     };
   }
@@ -128,6 +145,7 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
     state,
     agent,
     facilitiesUsed,
+    facilitiesBuildable,
     researchUsed,
     eventsUsed,
     peakResources,
@@ -148,6 +166,7 @@ function summarise(
   state: GameState,
   agent: AgentConfig,
   facilitiesUsed: Set<string>,
+  facilitiesBuildable: Set<string>,
   researchUsed: Set<string>,
   eventsUsed: Set<string>,
   peakResources: Record<string, number>,
@@ -177,6 +196,7 @@ function summarise(
     finalResources: { ...state.resources },
     peakResources,
     facilitiesUsed: [...facilitiesUsed],
+    facilitiesBuildable: [...facilitiesBuildable],
     researchUsed: [...researchUsed],
     eventsUsed: [...eventsUsed],
     foodSeries,
@@ -219,6 +239,7 @@ function errorResult(options: SimulationOptions, agent: AgentConfig, error: stri
     finalResources: {},
     peakResources: {},
     facilitiesUsed: [],
+    facilitiesBuildable: [],
     researchUsed: [],
     eventsUsed: [],
     foodSeries: [],

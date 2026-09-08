@@ -110,6 +110,10 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
   }
 
   const unusedFacilities = FACILITIES.filter((f) => !facilitiesSeen.has(f.id)).map((f) => f.id);
+  const buildableSeen = new Set<string>();
+  for (const result of results) for (const id of result.facilitiesBuildable) buildableSeen.add(id);
+  const buildableRuns = (id: string): number =>
+    results.filter((r) => r.facilitiesBuildable.includes(id)).length;
   const unusedResearch = RESEARCH.filter((r) => !researchSeen.has(r.id)).map((r) => r.id);
 
   /*
@@ -221,7 +225,22 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
     warnings.push({
       severity: 'warn',
       code: 'unused-facility',
-      message: `Never built by any agent: ${unusedFacilities.join(', ')}. Either the cost is wrong or the payoff is invisible.`,
+      /*
+       * Say which of the two it is, rather than offering both.
+       *
+       * The message used to read "either the cost is wrong or the payoff is invisible",
+       * and for the Deep Archive it was neither: the archive was buildable on 899 days
+       * across 200 runs and built on none of them, because the agent's own `busy` guard
+       * held on 80% of those days. A warning that names two causes and means a third
+       * sends the reader to retune a price that was never the problem.
+       */
+      message: `Never built by any agent: ${unusedFacilities
+        .map((id) => {
+          const runsBuildable = buildableRuns(id);
+          if (runsBuildable === 0) return `${id} (never became buildable — check its unlock, not its price)`;
+          return `${id} (buildable in ${Math.round((runsBuildable / Math.max(1, runs)) * 100)}% of runs and still never built — the agent never chose it, so look at the payoff or at the build order)`;
+        })
+        .join(', ')}.`,
     });
   }
 

@@ -275,6 +275,8 @@ export const EN_MESSAGES = {
   'research.none':
     'No project running. Insight accumulates only while something is being worked on.',
   'research.estimate': '~{days}d',
+  /* Locked nodes are priced by the whole outstanding chain, not by their own line. */
+  'research.allIn': '{cost} all-in',
   'research.branch.survival': 'Survival',
   'research.branch.engineering': 'Engineering',
   'research.branch.medicine': 'Medicine',
