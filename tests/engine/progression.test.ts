@@ -233,6 +233,41 @@ describe('research', () => {
     expect(after).toBe(before - RESEARCH_BY_ID['sur_rationing']!.cost);
   });
 
+  it('does not charge again for work already sunk into a prerequisite', () => {
+    /*
+     * Otherwise the panel's all-in figure sits still while a prerequisite visibly
+     * progresses, then falls by its whole price the moment it completes.
+     */
+    const state = newState();
+    placeFacility(state, 'laboratory', 1);
+    const node = RESEARCH_BY_ID['sur_cold_cellar']!;
+    const full = Research.researchChainCost(state, node);
+    Research.startResearch(state, 'sur_rationing');
+    expect(state.research.active?.id, 'the prerequisite should be the active project').toBe('sur_rationing');
+    state.research.active!.progress = 10;
+    expect(Research.researchChainCost(state, node)).toBe(full - 10);
+  });
+
+  it('credits progress banked when a project was shelved', () => {
+    const state = newState();
+    placeFacility(state, 'laboratory', 1);
+    const node = RESEARCH_BY_ID['sur_cold_cellar']!;
+    const full = Research.researchChainCost(state, node);
+    Research.startResearch(state, 'sur_rationing');
+    state.research.active!.progress = 12;
+    // Shelving preserves half the progress, and half is still paid for.
+    Research.cancelResearch(state);
+    expect(state.flags['research:banked:sur_rationing']).toBe(6);
+    expect(Research.researchChainCost(state, node)).toBe(full - 6);
+  });
+
+  it('never prices a chain below zero when progress exceeds the list cost', () => {
+    const state = newState();
+    const node = RESEARCH_BY_ID['sur_preserving']!;
+    state.flags['research:banked:sur_rationing'] = 9999;
+    expect(Research.researchChainCost(state, node)).toBe(node.cost);
+  });
+
   it('gates tier 2+ behind a laboratory', () => {
     const state = newState();
     const tier2 = RESEARCH.find((n) => n.tier >= 2 && n.requires.length === 0);

@@ -36,7 +36,7 @@ import {
 } from './facilities';
 import { resolveResources } from './resources';
 import { progressCrafting } from './crafting';
-import { progressResearch } from './research';
+import { insightRate, progressResearch } from './research';
 import { driftRelationships, hasHostilePair, getRelationship } from './relationships';
 import {
   addHistory,
@@ -67,6 +67,26 @@ export interface AdvanceResult {
   /** Events waiting for the player. The day is not "over" until these are resolved. */
   pendingEvents: number;
   ended: boolean;
+  /**
+   * What the research step actually saw, sampled at the moment it ran.
+   *
+   * Research advances at stage 5, but fatigue, conditions, refusals, facility decay and
+   * event effects all land afterwards, at stages 6 to 12. A caller that reads the insight
+   * rate or the laboratory's staffing once the day is over is reading a different day: a
+   * scientist who produced insight and then walked off the post counts as unstaffed, and an
+   * event recruit counts the other way. The balance report drew its `unreachable-tier`
+   * diagnosis from exactly those numbers, so it has to be told the ones that were used.
+   */
+  research: ResearchDaySample;
+}
+
+export interface ResearchDaySample {
+  /** Insight generated this day, at the rate `progressResearch` spent. */
+  insight: number;
+  labOperational: boolean;
+  labStaffed: boolean;
+  /** 0 when there is no laboratory. */
+  labLevel: number;
 }
 
 function log(state: GameState, tone: LogTone, text: string, channel?: string): void {
@@ -152,6 +172,20 @@ export function advanceDay(state: GameState): AdvanceResult {
     notes.push(note);
     log(state, 'good', note, t('engine.channel.workshop'));
   }
+  /*
+   * Sampled here, immediately before the research step, not after the day. See
+   * `ResearchDaySample`. `insightRate` is pure, so this reads exactly the value
+   * `progressResearch` is about to use.
+   */
+  const lab = findFacility(state, 'laboratory');
+  const labOperational = Boolean(lab && lab.status === 'operational');
+  const research: ResearchDaySample = {
+    insight: insightRate(state).total,
+    labOperational,
+    labStaffed: labOperational && staffOf(state, lab!).length > 0,
+    labLevel: lab?.level ?? 0,
+  };
+
   for (const note of progressResearch(state, rng)) {
     notes.push(note);
     log(state, 'good', note, t('engine.channel.research'));
@@ -218,12 +252,12 @@ export function advanceDay(state: GameState): AdvanceResult {
       t('engine.channel.ending'),
     );
     state.rng = rng.snapshot();
-    return { report, pendingEvents: 0, ended: true };
+    return { report, pendingEvents: 0, ended: true, research };
   }
 
   state.phase = state.events.pending.length > 0 ? 'events' : 'planning';
   state.rng = rng.snapshot();
-  return { report, pendingEvents: state.events.pending.length, ended: false };
+  return { report, pendingEvents: state.events.pending.length, ended: false, research };
 }
 
 /* ------------------------------------------------------------------ weather */

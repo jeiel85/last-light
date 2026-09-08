@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DIFFICULTIES, SCENARIOS, advanceDay } from '@engine';
-import { newState, testRng } from '../helpers';
+import { DIFFICULTIES, Research, SCENARIOS, advanceDay } from '@engine';
+import { newState, placeFacility, testRng } from '../helpers';
 import { planDay, type AgentConfig } from '../../src/engine/sim/agent';
 import { analyse } from '../../src/engine/sim/report';
 import { runSimulation, type SimulationOptions, type SimulationResult } from '../../src/engine/sim/run';
@@ -178,6 +178,55 @@ describe('the agent as an instrument', () => {
       far.facilities.filter((f) => f.upgradingTo).length !== before.upgrading;
     expect(acted, 'the agent should spend rather than wait on an upgrade out of reach').toBe(true);
   });
+});
+
+/**
+ * The instrument has to sample where the work happens.
+ *
+ * Research advances at stage 5 of the day pipeline; fatigue, conditions, refusals, facility
+ * decay and event effects all land at stages 6 to 12. Numbers read after the day is over
+ * describe a different day than the one research was paid for.
+ */
+describe('the research sample is taken where research runs', () => {
+  it('reports the insight the day actually spent', () => {
+    const state = newState();
+    placeFacility(state, 'laboratory', 1);
+    // An expensive node, so one day cannot finish it and reset the progress counter.
+    Research.startResearch(state, 'agr_deep_root');
+    if (!state.research.active) {
+      // Gated in a fresh vault; any startable node serves, the invariant is the same.
+      const startable = Research.allResearch(state).find((r) => r.ok);
+      expect(startable, 'no research node can be started in a fresh vault').toBeDefined();
+      Research.startResearch(state, startable!.node.id);
+    }
+    const before = state.research.active!.progress;
+    const result = advanceDay(state);
+    // Unfinished, so progress advanced by exactly the rate the research step used.
+    if (state.research.active) {
+      expect(state.research.active.progress - before).toBeCloseTo(result.research.insight, 6);
+    }
+    expect(result.research.labOperational).toBe(true);
+    expect(result.research.labLevel).toBe(1);
+  });
+
+  it('never reports a facility as built without having seen it buildable', () => {
+    /*
+     * `canBuild` refuses a unique facility that already exists, so a sample taken after the
+     * day sees "already built" and never records the one moment it was available. Sampling
+     * before the agent spends is what keeps this invariant true.
+     *
+     * The vault opens with facilities already standing — the reactor among them. Those were
+     * never built and were never buildable, so they are not what this invariant is about.
+     */
+    const startingFacilities = new Set(newState().facilities.map((f) => f.defId));
+    for (const result of batch(8, { seedPrefix: 'BUILDABLE' })) {
+      const built = result.facilitiesUsed.filter((id) => !startingFacilities.has(id));
+      expect(built.length, 'a 60-day run should build something').toBeGreaterThan(0);
+      for (const id of built) {
+        expect(result.facilitiesBuildable, `${id} was built in ${result.seed} but never sampled as buildable`).toContain(id);
+      }
+    }
+  }, 60000);
 });
 
 /**

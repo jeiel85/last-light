@@ -3,8 +3,7 @@ import { createInitialState, type NewRunOptions } from '../model/state';
 import { rngFromState } from '../core/rng';
 import { advanceDay } from '../systems/dayCycle';
 import { ENDING_BY_ID } from '../systems/endings';
-import { insightRate } from '../systems/research';
-import { canBuild, findFacility, staffOf } from '../systems/facilities';
+import { canBuild } from '../systems/facilities';
 import { FACILITIES } from '../data/facilities';
 import { DEFAULT_AGENT, planDay, resolveExpeditionBeats, resolvePendingEvents, type AgentConfig } from './agent';
 
@@ -94,12 +93,30 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
   let labMaxLevel = 0;
   const facilitiesUsed = new Set<string>();
   const facilitiesBuildable = new Set<string>();
+  const sampleBuildable = (): void => {
+    for (const def of FACILITIES) {
+      // Only the ones still unproven; `canBuild` is not free, and a facility already seen
+      // as buildable cannot become more interesting by being seen again.
+      if (!facilitiesBuildable.has(def.id) && canBuild(state, def.id).ok) {
+        facilitiesBuildable.add(def.id);
+      }
+    }
+  };
   const researchUsed = new Set<string>();
   const eventsUsed = new Set<string>();
 
   try {
     for (let day = 0; day < maxDays; day += 1) {
       const rng = rngFromState(state.rng).fork(`agent:${state.day}`);
+
+      /*
+       * Before `planDay` spends. Asking afterwards misses a facility that was affordable
+       * when the agent chose, and lost affordability because the agent repaired or built
+       * something higher in its own order — which is the difference between "you could
+       * never unlock this" and "the agent preferred something else", the two cases the
+       * `unused-facility` warning exists to tell apart.
+       */
+      sampleBuildable();
 
       planDay(state, agent, rng);
       if (state.activeExpeditionId) resolveExpeditionBeats(state, agent, rng);
@@ -108,22 +125,21 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
 
       resolvePendingEvents(state, agent, unlocks);
 
-      insightGenerated += insightRate(state).total;
-      const lab = findFacility(state, 'laboratory');
-      if (lab && lab.status === 'operational') {
+      /*
+       * Read from the day's own research step rather than recomputed here: by this point
+       * fatigue, conditions, facility decay and event effects have all landed, and the
+       * laboratory that produced insight this morning may be empty. See `ResearchDaySample`.
+       */
+      insightGenerated += result.research.insight;
+      if (result.research.labOperational) {
         labOperationalDays += 1;
-        if (staffOf(state, lab).length > 0) labStaffedDays += 1;
-        labMaxLevel = Math.max(labMaxLevel, lab.level);
+        if (result.research.labStaffed) labStaffedDays += 1;
+        labMaxLevel = Math.max(labMaxLevel, result.research.labLevel);
       }
 
       for (const facility of state.facilities) facilitiesUsed.add(facility.defId);
-      for (const def of FACILITIES) {
-        // Only ask about the ones still unproven; `canBuild` is not free and the answer
-        // for a facility already seen as buildable cannot change back to interesting.
-        if (!facilitiesBuildable.has(def.id) && canBuild(state, def.id).ok) {
-          facilitiesBuildable.add(def.id);
-        }
-      }
+      // An evening event can open a bulkhead, so sample again after events resolve.
+      sampleBuildable();
       for (const id of state.research.completed) researchUsed.add(id);
       for (const record of state.events.history) eventsUsed.add(record.eventId);
       for (const [key, value] of Object.entries(state.resources)) {

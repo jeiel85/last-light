@@ -97,10 +97,15 @@ export function researchCost(state: GameState, node: ResearchDef): number {
 }
 
 /**
- * Input : a node. Output: its cost plus that of every prerequisite not yet completed.
- * Why   : prerequisites form a small DAG — `def_kill_box` reaches `def_ranged_arms` down
- *         two separate branches — so a node already counted must not be counted again.
- *         `seen` carries across the recursion for exactly that.
+ * Input : a node. Output: the insight still outstanding on it and on its prerequisites.
+ * Why   : two things would otherwise be overstated. Prerequisites form a small DAG —
+ *         `def_kill_box` reaches `def_ranged_arms` down two separate branches — so a node
+ *         already counted must not be counted again; `seen` carries across the recursion
+ *         for that. And work already done is not still owed: a prerequisite half-finished,
+ *         or shelved with progress banked at the 50% penalty, has had part of its price
+ *         paid. Charging the list price anyway would leave the panel's estimate frozen
+ *         while a prerequisite visibly progressed, then drop it by the whole price at the
+ *         moment of completion.
  */
 export function researchChainCost(
   state: GameState,
@@ -109,12 +114,18 @@ export function researchChainCost(
 ): number {
   if (seen.has(node.id) || state.research.completed.includes(node.id)) return 0;
   seen.add(node.id);
-  let total = researchCost(state, node);
+  let total = Math.max(0, researchCost(state, node) - researchProgressOn(state, node.id));
   for (const id of node.requires) {
     const prerequisite = RESEARCH_BY_ID[id];
     if (prerequisite) total += researchChainCost(state, prerequisite, seen);
   }
   return total;
+}
+
+/** Insight already sunk into a node: live progress if it is the active project, else banked. */
+function researchProgressOn(state: GameState, id: ResearchId): number {
+  if (state.research.active?.id === id) return state.research.active.progress;
+  return (state.flags[`research:banked:${id}`] as number | undefined) ?? 0;
 }
 
 export function researchAvailability(state: GameState, node: ResearchDef): ResearchAvailability {
