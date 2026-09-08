@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DIFFICULTIES, SCENARIOS } from '@engine';
-import type { AgentConfig } from '../../src/engine/sim/agent';
+import { DIFFICULTIES, SCENARIOS, advanceDay } from '@engine';
+import { newState, testRng } from '../helpers';
+import { planDay, type AgentConfig } from '../../src/engine/sim/agent';
 import { analyse } from '../../src/engine/sim/report';
 import { runSimulation, type SimulationOptions, type SimulationResult } from '../../src/engine/sim/run';
 
@@ -122,4 +123,89 @@ describe('headless runs', () => {
     const report = analyse(batch(40, { maxDays: 60, seedPrefix: 'RUNAWAY' }));
     expect(report.resourceRunaway).toEqual([]);
   }, 120000);
+});
+
+/**
+ * The headless agent is the balance instrument. A defect here does not break the game — it
+ * silently produces wrong numbers about the game, which is worse, because those numbers get
+ * believed and content gets retuned against them.
+ */
+describe('the agent as an instrument', () => {
+  /**
+   * Input : a vault short of power whose reactor upgrade is out of reach.
+   * Output: the agent still spends on something.
+   * Why   : `manageBase` used to return unconditionally whenever power was short and the
+   *         reactor upgrade unaffordable, banking components for it. That is an absorbing
+   *         state — the reactor's level-3 upgrade costs 62 components against a mean peak
+   *         of ~66 for a whole run — so the agent stopped building, stopped upgrading, and
+   *         never reached the level-2 laboratory that gates tier-3 research. The batch
+   *         report then blamed the research tree. Banking only inside a reachable window
+   *         keeps the original intent without the deadlock.
+   */
+  function powerShortState(components: number) {
+    const state = newState();
+    // A real day, so `lastReport` is the one the agent actually reads.
+    advanceDay(state);
+    const reactor = state.facilities.find((f) => f.defId === 'reactor');
+    expect(reactor, 'the starting vault should have a reactor').toBeDefined();
+    reactor!.level = 2;
+    reactor!.status = 'operational';
+    state.resources.components = components;
+    // Force the shortage the rule keys on, rather than waiting for one to arise.
+    state.lastReport!.power.capacity.total = 1;
+    state.lastReport!.power.demand.total = 99;
+    return state;
+  }
+
+  it('banks for the reactor only while the upgrade is within reach', () => {
+    // Level-2 reactor → the next upgrade costs 62 components.
+    const nearly = powerShortState(50); // shortfall 12 — close enough to save for
+    planDay(nearly, { strategy: 'balanced', risk: 0.5 }, testRng('bank'));
+    expect(nearly.resources.components, 'a reachable upgrade is worth banking for').toBe(50);
+  });
+
+  it('does not stall forever banking for a reactor upgrade it cannot reach', () => {
+    const far = powerShortState(30); // shortfall 32 — a wait that never ends
+    const before = {
+      components: far.resources.components,
+      facilities: far.facilities.length,
+      upgrading: far.facilities.filter((f) => f.upgradingTo).length,
+    };
+    planDay(far, { strategy: 'balanced', risk: 0.5 }, testRng('stall'));
+    const acted =
+      far.resources.components !== before.components ||
+      far.facilities.length !== before.facilities ||
+      far.facilities.filter((f) => f.upgradingTo).length !== before.upgrading;
+    expect(acted, 'the agent should spend rather than wait on an upgrade out of reach').toBe(true);
+  });
+});
+
+/**
+ * The batch report has to explain itself.
+ *
+ * `unreachable-tier` used to end with "look for the gate before the cost", which left the
+ * reader to instrument the run by hand to find out whether the tier was priced out,
+ * unstaffed, or behind a facility level nobody reached. Those have different fixes.
+ */
+describe('the balance report explains an unreachable tier', () => {
+  it('records the insight economy alongside the node counts', () => {
+    const report = analyse(batch(12, { seedPrefix: 'ECONOMY' }));
+    const economy = report.insightEconomy;
+    expect(economy.treeCost).toBeGreaterThan(0);
+    expect(economy.meanInsightPerRun).toBeGreaterThan(0);
+    expect(economy.labBuiltRate).toBeGreaterThanOrEqual(0);
+    expect(economy.labBuiltRate).toBeLessThanOrEqual(1);
+    expect(economy.labStaffedRate).toBeGreaterThanOrEqual(0);
+    expect(economy.labStaffedRate).toBeLessThanOrEqual(1);
+  }, 60000);
+
+  it('names a cause when a whole tier goes uncompleted', () => {
+    const report = analyse(batch(12, { seedPrefix: 'ECONOMY' }));
+    const warning = report.warnings.find((w) => w.code === 'unreachable-tier');
+    // Not every batch strands a tier; when one does, the message must say why.
+    if (warning) {
+      expect(warning.message).toMatch(/The gate: .+\./);
+      expect(warning.message).not.toMatch(/look for the gate/);
+    }
+  }, 60000);
 });

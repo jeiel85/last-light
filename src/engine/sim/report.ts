@@ -27,6 +27,27 @@ export interface ResearchTierStat {
   perRun: number;
 }
 
+/**
+ * Where the insight to pay for the research tree actually comes from.
+ *
+ * A finished-node count cannot distinguish a tree that is too expensive from a laboratory
+ * that is never built, never staffed, or never upgraded past the level that gates a tier.
+ * These four numbers separate those cases, so `unreachable-tier` can name the gate instead
+ * of advising the reader to go and look for it.
+ */
+export interface InsightEconomyStat {
+  /** Mean insight generated across a whole run. */
+  meanInsightPerRun: number;
+  /** Total insight the whole tree costs, at list price. */
+  treeCost: number;
+  /** Share of runs in which the laboratory was ever operational. */
+  labBuiltRate: number;
+  /** Share of operational laboratory days on which somebody was actually working in it. */
+  labStaffedRate: number;
+  /** Mean highest laboratory level reached, and how many runs reached each level. */
+  labLevelRuns: Record<number, number>;
+}
+
 export interface BalanceReport {
   runs: number;
   errors: number;
@@ -45,6 +66,8 @@ export interface BalanceReport {
   researchTiers: ResearchTierStat[];
   /** Mean research nodes completed per run. */
   meanResearchCompleted: number;
+  /** What the run could afford to research, and why. */
+  insightEconomy: InsightEconomyStat;
   unseenEvents: string[];
   strategyWinRates: Record<string, { runs: number; wins: number; rate: number }>;
   resourceRunaway: string[];
@@ -114,6 +137,21 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
     });
   const meanResearchCompleted =
     results.reduce((acc, r) => acc + r.researchCompleted, 0) / Math.max(1, runs);
+
+  const labOperationalDays = results.reduce((acc, r) => acc + r.labOperationalDays, 0);
+  const labLevelRuns: Record<number, number> = {};
+  for (const result of results) {
+    labLevelRuns[result.labMaxLevel] = (labLevelRuns[result.labMaxLevel] ?? 0) + 1;
+  }
+  const insightEconomy: InsightEconomyStat = {
+    meanInsightPerRun:
+      results.reduce((acc, r) => acc + r.insightGenerated, 0) / Math.max(1, runs),
+    treeCost: RESEARCH.reduce((acc, r) => acc + r.cost, 0),
+    labBuiltRate: results.filter((r) => r.labOperationalDays > 0).length / Math.max(1, runs),
+    labStaffedRate:
+      results.reduce((acc, r) => acc + r.labStaffedDays, 0) / Math.max(1, labOperationalDays),
+    labLevelRuns,
+  };
   const unseenEvents = EVENTS.filter((e) => !e.scheduledOnly && !eventsSeen.has(e.id)).map((e) => e.id);
 
   const strategyWinRates: Record<string, { runs: number; wins: number; rate: number }> = {};
@@ -195,12 +233,35 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
     });
   }
 
+  /*
+   * Naming the gate, rather than telling the reader to go and find it.
+   *
+   * The first version of this warning said "look for the gate before the cost", which is
+   * the right instinct and no help at all: the reader still has to instrument the run to
+   * learn whether the tier was priced out, unstaffed, or behind a facility level nobody
+   * reached. The economy numbers above answer that, so say which one it is. The ranking is
+   * by how early the cause bites — a laboratory that was never built cannot be understaffed.
+   */
   for (const tier of researchTiers) {
     if (tier.never === tier.nodes && tier.nodes > 0) {
+      const labLevelsReached = Object.entries(insightEconomy.labLevelRuns)
+        .filter(([level]) => Number(level) > 0)
+        .map(([level, count]) => `L${level}×${count}`)
+        .join(' ');
+      let gate: string;
+      if (insightEconomy.labBuiltRate < 0.75) {
+        gate = `the laboratory was built in only ${Math.round(insightEconomy.labBuiltRate * 100)}% of runs`;
+      } else if (insightEconomy.labStaffedRate < 0.5) {
+        gate = `the laboratory stood unstaffed on ${Math.round((1 - insightEconomy.labStaffedRate) * 100)}% of the days it was running, so it produced nothing`;
+      } else if (insightEconomy.meanInsightPerRun < insightEconomy.treeCost * 0.15) {
+        gate = `a run generates ${insightEconomy.meanInsightPerRun.toFixed(0)} insight against a tree costing ${insightEconomy.treeCost}`;
+      } else {
+        gate = `laboratory levels reached across the batch: ${labLevelsReached || 'none'}`;
+      }
       warnings.push({
         severity: 'warn',
         code: 'unreachable-tier',
-        message: `No run completed a single tier-${tier.tier} research node. All ${tier.nodes} of them are authored content the game never shows; look for the gate before the cost.`,
+        message: `No run completed a single tier-${tier.tier} research node. All ${tier.nodes} of them are authored content the game never shows. The gate: ${gate}.`,
       });
     }
   }
@@ -250,6 +311,7 @@ export function analyse(results: readonly SimulationResult[]): BalanceReport {
     unusedResearch,
     researchTiers,
     meanResearchCompleted,
+    insightEconomy,
     unseenEvents,
     strategyWinRates,
     resourceRunaway,
@@ -304,6 +366,18 @@ export function formatReport(report: BalanceReport): string {
         .map((tier) => `t${tier.tier} ${tier.perRun.toFixed(1)}/${tier.nodes}`)
         .join('  '),
   );
+  {
+    const economy = report.insightEconomy;
+    const levels = Object.entries(economy.labLevelRuns)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([level, count]) => `L${level} ${count}`)
+      .join('  ');
+    lines.push(
+      `  insight     ${economy.meanInsightPerRun.toFixed(0)} per run against a ${economy.treeCost}-point tree  ` +
+        `lab built ${Math.round(economy.labBuiltRate * 100)}%  staffed ${Math.round(economy.labStaffedRate * 100)}% of its days`,
+    );
+    lines.push(`  lab level   ${levels}  (runs by highest level reached)`);
+  }
   if (report.unusedResearch.length > 0) {
     lines.push(`  never researched (${report.unusedResearch.length}): ${report.unusedResearch.slice(0, 12).join(', ')}${report.unusedResearch.length > 12 ? ' …' : ''}`);
   }

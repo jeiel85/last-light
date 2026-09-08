@@ -3,6 +3,8 @@ import { createInitialState, type NewRunOptions } from '../model/state';
 import { rngFromState } from '../core/rng';
 import { advanceDay } from '../systems/dayCycle';
 import { ENDING_BY_ID } from '../systems/endings';
+import { insightRate } from '../systems/research';
+import { findFacility, staffOf } from '../systems/facilities';
 import { DEFAULT_AGENT, planDay, resolveExpeditionBeats, resolvePendingEvents, type AgentConfig } from './agent';
 
 /**
@@ -48,6 +50,17 @@ export interface SimulationResult {
   /** Day-by-day food and water, for starvation-curve analysis. */
   foodSeries: number[];
   waterSeries: number[];
+  /**
+   * The insight economy, recorded because the research counters alone cannot explain
+   * themselves. "No run finished a tier-3 node" has at least four different causes — the
+   * laboratory was never built, never staffed, never upgraded to the level that unlocks
+   * the tier, or the nodes cost more insight than a run generates — and the finished-node
+   * count looks identical under all four.
+   */
+  insightGenerated: number;
+  labOperationalDays: number;
+  labStaffedDays: number;
+  labMaxLevel: number;
   error?: string;
 }
 
@@ -66,6 +79,10 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
   const peakResources: Record<string, number> = {};
   const foodSeries: number[] = [];
   const waterSeries: number[] = [];
+  let insightGenerated = 0;
+  let labOperationalDays = 0;
+  let labStaffedDays = 0;
+  let labMaxLevel = 0;
   const facilitiesUsed = new Set<string>();
   const researchUsed = new Set<string>();
   const eventsUsed = new Set<string>();
@@ -81,6 +98,14 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
 
       resolvePendingEvents(state, agent, unlocks);
 
+      insightGenerated += insightRate(state).total;
+      const lab = findFacility(state, 'laboratory');
+      if (lab && lab.status === 'operational') {
+        labOperationalDays += 1;
+        if (staffOf(state, lab).length > 0) labStaffedDays += 1;
+        labMaxLevel = Math.max(labMaxLevel, lab.level);
+      }
+
       for (const facility of state.facilities) facilitiesUsed.add(facility.defId);
       for (const id of state.research.completed) researchUsed.add(id);
       for (const record of state.events.history) eventsUsed.add(record.eventId);
@@ -94,14 +119,13 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
     }
   } catch (error) {
     return {
-      ...summarise(state, options, agent, facilitiesUsed, researchUsed, eventsUsed, peakResources, foodSeries, waterSeries),
+      ...summarise(state, agent, facilitiesUsed, researchUsed, eventsUsed, peakResources, foodSeries, waterSeries, { insightGenerated, labOperationalDays, labStaffedDays, labMaxLevel }),
       error: error instanceof Error ? `${error.message}\n${error.stack}` : String(error),
     };
   }
 
   return summarise(
     state,
-    options,
     agent,
     facilitiesUsed,
     researchUsed,
@@ -109,12 +133,19 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
     peakResources,
     foodSeries,
     waterSeries,
+    { insightGenerated, labOperationalDays, labStaffedDays, labMaxLevel },
   );
+}
+
+interface InsightEconomy {
+  insightGenerated: number;
+  labOperationalDays: number;
+  labStaffedDays: number;
+  labMaxLevel: number;
 }
 
 function summarise(
   state: GameState,
-  options: SimulationOptions,
   agent: AgentConfig,
   facilitiesUsed: Set<string>,
   researchUsed: Set<string>,
@@ -122,6 +153,7 @@ function summarise(
   peakResources: Record<string, number>,
   foodSeries: number[],
   waterSeries: number[],
+  insight: InsightEconomy,
 ): SimulationResult {
   const alive = state.survivors.filter((s) => s.alive).length;
   return {
@@ -149,7 +181,7 @@ function summarise(
     eventsUsed: [...eventsUsed],
     foodSeries,
     waterSeries,
-    ...(options.seed ? {} : {}),
+    ...insight,
   };
 }
 
@@ -191,6 +223,10 @@ function errorResult(options: SimulationOptions, agent: AgentConfig, error: stri
     eventsUsed: [],
     foodSeries: [],
     waterSeries: [],
+    insightGenerated: 0,
+    labOperationalDays: 0,
+    labStaffedDays: 0,
+    labMaxLevel: 0,
     error,
   };
 }
