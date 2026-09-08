@@ -50,6 +50,13 @@ export interface AgentConfig {
 
 export const DEFAULT_AGENT: AgentConfig = { risk: 0.5, strategy: 'balanced' };
 
+/**
+ * How close the reactor upgrade must be before the agent stops spending and banks for it,
+ * in components. Roughly one good expedition haul: near enough that saving arrives, far
+ * enough that the agent does not freeze waiting on an upgrade the run cannot afford.
+ */
+const REACTOR_BANKING_REACH = 18;
+
 const BUILD_ORDERS: Record<AgentConfig['strategy'], string[]> = {
   balanced: [
     'water_reclaimer', 'galley', 'hydroponics', 'laboratory', 'workshop', 'bunks',
@@ -223,10 +230,23 @@ function manageBase(state: GameState, config: AgentConfig): void {
   if (powerShort) {
     if (tryUpgrade('reactor', 0)) return;
     // If the reactor upgrade is not yet affordable, bank for it rather than spending the
-    // components on something that will only add to the deficit.
+    // components on something that will only add to the deficit — but only while it is
+    // actually in reach.
+    //
+    // This return used to be unconditional, and it was an absorbing state: for as long as
+    // power was short and the upgrade unaffordable, the agent left manageBase having done
+    // nothing at all. On a 120-run probe that was 55% of the days the laboratory sat at
+    // level 1, against 12% blocked by the laboratory's own price, so nothing else in this
+    // function ever ran and no run reached the level-2 laboratory that gates tier-3
+    // research. The reactor's level-3 upgrade costs 62 components against a mean peak of
+    // 66 across a whole run, so "wait until you can afford it" was a wait that never ended.
+    //
+    // Banking toward a cost the run will plausibly reach is a plan; banking toward one it
+    // will not is a stall, so fall through and let the rest of the policy spend.
     const reactor = findFacility(state, 'reactor');
     const next = reactor ? FACILITIES.find((f) => f.id === 'reactor')?.levels[reactor.level] : undefined;
-    if (next && (next.buildCost.components ?? 0) > state.resources.components) return;
+    const shortfall = next ? (next.buildCost.components ?? 0) - state.resources.components : 0;
+    if (next && shortfall > 0 && shortfall <= REACTOR_BANKING_REACH) return;
   }
   const canFeedMore = production.food.total >= consumption.food.total;
   if (overcrowding(state) > 0 && canFeedMore && tryUpgrade('bunks', 2)) return;

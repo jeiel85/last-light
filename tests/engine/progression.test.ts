@@ -190,6 +190,84 @@ describe('inventory', () => {
 });
 
 describe('research', () => {
+  /*
+   * A locked node's list price is not what it costs you.
+   *
+   * The panel used to show a tier-3 node's own price and an estimate derived from it, which
+   * reads as "one project away". The cheapest tier-3 node lists at 39 insight and costs 76
+   * once its prerequisites are counted; the mean tier-3 chain is 111, against roughly 93
+   * generated in a 60-day run. `chainCost` is what the panel shows for a locked node, so
+   * these assertions are the ones keeping that display honest.
+   */
+  it('prices a locked node by its whole outstanding chain', () => {
+    const state = newState();
+    const node = RESEARCH_BY_ID['sur_cold_cellar']!;
+    const availability = Research.researchAvailability(state, node);
+    const chain = node.cost + RESEARCH_BY_ID['sur_preserving']!.cost + RESEARCH_BY_ID['sur_rationing']!.cost;
+    expect(availability.cost).toBe(node.cost);
+    expect(availability.chainCost).toBe(chain);
+    expect(availability.chainCost).toBeGreaterThan(availability.cost);
+  });
+
+  it('charges a shared prerequisite once, not once per path', () => {
+    // def_kill_box reaches def_ranged_arms down two branches, via plate armour and firearms.
+    const state = newState();
+    const killBox = RESEARCH_BY_ID['def_kill_box']!;
+    const ids = new Set<string>();
+    const walk = (id: string) => {
+      if (ids.has(id)) return;
+      ids.add(id);
+      for (const r of RESEARCH_BY_ID[id]!.requires) walk(r);
+    };
+    walk(killBox.id);
+    const distinct = [...ids].reduce((acc, id) => acc + RESEARCH_BY_ID[id]!.cost, 0);
+    expect(Research.researchChainCost(state, killBox)).toBe(distinct);
+  });
+
+  it('drops a prerequisite from the chain once it is completed', () => {
+    const state = newState();
+    const node = RESEARCH_BY_ID['sur_cold_cellar']!;
+    const before = Research.researchAvailability(state, node).chainCost;
+    state.research.completed.push('sur_rationing');
+    const after = Research.researchAvailability(state, node).chainCost;
+    expect(after).toBe(before - RESEARCH_BY_ID['sur_rationing']!.cost);
+  });
+
+  it('does not charge again for work already sunk into a prerequisite', () => {
+    /*
+     * Otherwise the panel's all-in figure sits still while a prerequisite visibly
+     * progresses, then falls by its whole price the moment it completes.
+     */
+    const state = newState();
+    placeFacility(state, 'laboratory', 1);
+    const node = RESEARCH_BY_ID['sur_cold_cellar']!;
+    const full = Research.researchChainCost(state, node);
+    Research.startResearch(state, 'sur_rationing');
+    expect(state.research.active?.id, 'the prerequisite should be the active project').toBe('sur_rationing');
+    state.research.active!.progress = 10;
+    expect(Research.researchChainCost(state, node)).toBe(full - 10);
+  });
+
+  it('credits progress banked when a project was shelved', () => {
+    const state = newState();
+    placeFacility(state, 'laboratory', 1);
+    const node = RESEARCH_BY_ID['sur_cold_cellar']!;
+    const full = Research.researchChainCost(state, node);
+    Research.startResearch(state, 'sur_rationing');
+    state.research.active!.progress = 12;
+    // Shelving preserves half the progress, and half is still paid for.
+    Research.cancelResearch(state);
+    expect(state.flags['research:banked:sur_rationing']).toBe(6);
+    expect(Research.researchChainCost(state, node)).toBe(full - 6);
+  });
+
+  it('never prices a chain below zero when progress exceeds the list cost', () => {
+    const state = newState();
+    const node = RESEARCH_BY_ID['sur_preserving']!;
+    state.flags['research:banked:sur_rationing'] = 9999;
+    expect(Research.researchChainCost(state, node)).toBe(node.cost);
+  });
+
   it('gates tier 2+ behind a laboratory', () => {
     const state = newState();
     const tier2 = RESEARCH.find((n) => n.tier >= 2 && n.requires.length === 0);

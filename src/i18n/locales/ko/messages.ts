@@ -276,6 +276,7 @@ export const KO_MESSAGES: MessageBundle = {
   'research.completeLabel': '완료',
   'research.none': '진행 중인 과제가 없다. 통찰은 무언가를 붙들고 있을 때만 쌓인다.',
   'research.estimate': '약 {days}일',
+  'research.allIn': '선행 포함 {cost}',
   'research.branch.survival': '생존',
   'research.branch.engineering': '공학',
   'research.branch.medicine': '의료',

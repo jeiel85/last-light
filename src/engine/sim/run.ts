@@ -3,6 +3,8 @@ import { createInitialState, type NewRunOptions } from '../model/state';
 import { rngFromState } from '../core/rng';
 import { advanceDay } from '../systems/dayCycle';
 import { ENDING_BY_ID } from '../systems/endings';
+import { canBuild } from '../systems/facilities';
+import { FACILITIES } from '../data/facilities';
 import { DEFAULT_AGENT, planDay, resolveExpeditionBeats, resolvePendingEvents, type AgentConfig } from './agent';
 
 /**
@@ -43,11 +45,30 @@ export interface SimulationResult {
   peakResources: Record<string, number>;
   /** Facility def ids that were ever built. */
   facilitiesUsed: string[];
+  /**
+   * Facility def ids that `canBuild` accepted at some point, whether or not one went up.
+   *
+   * "Never built" on its own cannot tell a facility the player could never unlock from one
+   * they could build any day and never wanted. Those are a content gate and a payoff
+   * problem respectively, and the fix for one is no use against the other.
+   */
+  facilitiesBuildable: string[];
   researchUsed: string[];
   eventsUsed: string[];
   /** Day-by-day food and water, for starvation-curve analysis. */
   foodSeries: number[];
   waterSeries: number[];
+  /**
+   * The insight economy, recorded because the research counters alone cannot explain
+   * themselves. "No run finished a tier-3 node" has at least four different causes — the
+   * laboratory was never built, never staffed, never upgraded to the level that unlocks
+   * the tier, or the nodes cost more insight than a run generates — and the finished-node
+   * count looks identical under all four.
+   */
+  insightGenerated: number;
+  labOperationalDays: number;
+  labStaffedDays: number;
+  labMaxLevel: number;
   error?: string;
 }
 
@@ -66,13 +87,36 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
   const peakResources: Record<string, number> = {};
   const foodSeries: number[] = [];
   const waterSeries: number[] = [];
+  let insightGenerated = 0;
+  let labOperationalDays = 0;
+  let labStaffedDays = 0;
+  let labMaxLevel = 0;
   const facilitiesUsed = new Set<string>();
+  const facilitiesBuildable = new Set<string>();
+  const sampleBuildable = (): void => {
+    for (const def of FACILITIES) {
+      // Only the ones still unproven; `canBuild` is not free, and a facility already seen
+      // as buildable cannot become more interesting by being seen again.
+      if (!facilitiesBuildable.has(def.id) && canBuild(state, def.id).ok) {
+        facilitiesBuildable.add(def.id);
+      }
+    }
+  };
   const researchUsed = new Set<string>();
   const eventsUsed = new Set<string>();
 
   try {
     for (let day = 0; day < maxDays; day += 1) {
       const rng = rngFromState(state.rng).fork(`agent:${state.day}`);
+
+      /*
+       * Before `planDay` spends. Asking afterwards misses a facility that was affordable
+       * when the agent chose, and lost affordability because the agent repaired or built
+       * something higher in its own order — which is the difference between "you could
+       * never unlock this" and "the agent preferred something else", the two cases the
+       * `unused-facility` warning exists to tell apart.
+       */
+      sampleBuildable();
 
       planDay(state, agent, rng);
       if (state.activeExpeditionId) resolveExpeditionBeats(state, agent, rng);
@@ -81,7 +125,21 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
 
       resolvePendingEvents(state, agent, unlocks);
 
+      /*
+       * Read from the day's own research step rather than recomputed here: by this point
+       * fatigue, conditions, facility decay and event effects have all landed, and the
+       * laboratory that produced insight this morning may be empty. See `ResearchDaySample`.
+       */
+      insightGenerated += result.research.insight;
+      if (result.research.labOperational) {
+        labOperationalDays += 1;
+        if (result.research.labStaffed) labStaffedDays += 1;
+        labMaxLevel = Math.max(labMaxLevel, result.research.labLevel);
+      }
+
       for (const facility of state.facilities) facilitiesUsed.add(facility.defId);
+      // An evening event can open a bulkhead, so sample again after events resolve.
+      sampleBuildable();
       for (const id of state.research.completed) researchUsed.add(id);
       for (const record of state.events.history) eventsUsed.add(record.eventId);
       for (const [key, value] of Object.entries(state.resources)) {
@@ -94,34 +152,43 @@ export function runSimulation(options: SimulationOptions = {}): SimulationResult
     }
   } catch (error) {
     return {
-      ...summarise(state, options, agent, facilitiesUsed, researchUsed, eventsUsed, peakResources, foodSeries, waterSeries),
+      ...summarise(state, agent, facilitiesUsed, facilitiesBuildable, researchUsed, eventsUsed, peakResources, foodSeries, waterSeries, { insightGenerated, labOperationalDays, labStaffedDays, labMaxLevel }),
       error: error instanceof Error ? `${error.message}\n${error.stack}` : String(error),
     };
   }
 
   return summarise(
     state,
-    options,
     agent,
     facilitiesUsed,
+    facilitiesBuildable,
     researchUsed,
     eventsUsed,
     peakResources,
     foodSeries,
     waterSeries,
+    { insightGenerated, labOperationalDays, labStaffedDays, labMaxLevel },
   );
+}
+
+interface InsightEconomy {
+  insightGenerated: number;
+  labOperationalDays: number;
+  labStaffedDays: number;
+  labMaxLevel: number;
 }
 
 function summarise(
   state: GameState,
-  options: SimulationOptions,
   agent: AgentConfig,
   facilitiesUsed: Set<string>,
+  facilitiesBuildable: Set<string>,
   researchUsed: Set<string>,
   eventsUsed: Set<string>,
   peakResources: Record<string, number>,
   foodSeries: number[],
   waterSeries: number[],
+  insight: InsightEconomy,
 ): SimulationResult {
   const alive = state.survivors.filter((s) => s.alive).length;
   return {
@@ -145,11 +212,12 @@ function summarise(
     finalResources: { ...state.resources },
     peakResources,
     facilitiesUsed: [...facilitiesUsed],
+    facilitiesBuildable: [...facilitiesBuildable],
     researchUsed: [...researchUsed],
     eventsUsed: [...eventsUsed],
     foodSeries,
     waterSeries,
-    ...(options.seed ? {} : {}),
+    ...insight,
   };
 }
 
@@ -187,10 +255,15 @@ function errorResult(options: SimulationOptions, agent: AgentConfig, error: stri
     finalResources: {},
     peakResources: {},
     facilitiesUsed: [],
+    facilitiesBuildable: [],
     researchUsed: [],
     eventsUsed: [],
     foodSeries: [],
     waterSeries: [],
+    insightGenerated: 0,
+    labOperationalDays: 0,
+    labStaffedDays: 0,
+    labMaxLevel: 0,
     error,
   };
 }

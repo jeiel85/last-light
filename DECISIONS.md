@@ -65,3 +65,53 @@ drops from 610 kB to 294 kB and Korean is fetched only by a player who reads Kor
 the background, after load. That is deliberate: a player who installs the game and then goes
 offline should still be able to switch language, and a language switch that silently fails
 offline is worse than a background download that already happens off the critical path.
+
+---
+
+## 3. Tier-3 research is aspirational, and the interface says so
+
+**Status**: decided, 2026-09-08. The last open item on
+[#4](https://github.com/jeiel85/last-light/issues/4), left open there deliberately so it
+would be settled with measurements rather than by taste.
+
+No run completes a tier-3 research node. The item asked whether that makes them
+"you must choose" or "these are overpriced". Measured, they are neither: **the run's
+insight budget is smaller than the chains it is meant to pay for.**
+
+| | insight |
+|---|---|
+| generated in a 60-day run (mean, 300 runs) | **93** |
+| cheapest tier-3 node, all-in with prerequisites (`sur_cold_cellar`) | **76** |
+| mean tier-3 chain across the ten nodes | **111** |
+| whole tree, list price | 1071 |
+
+A run's entire research budget, spent in one perfectly straight line and ignoring the
+laboratory gate altogether, buys the single cheapest tier-3 node with 17 points to spare
+and buys no other one at all.
+
+**The levers were measured, not guessed**, on 300 identical seeds each. Cutting the
+laboratory's level-2 price from 46 components to 28 changes nothing — tier 3 stays at 0.00
+nodes per run. Raising `insightPerStaff` from 7.2 to 9.0 changes nothing, because the
+laboratory stands unstaffed on about two-thirds of the days it is running and no crew are
+idle on those days: they are resting, in other facilities, or on expedition. Moving the
+tier-3 gate off laboratory level 2 entirely buys 0.05 nodes per run.
+
+**What we are doing.** Keeping the balance numbers exactly as they are, and making the
+interface stop implying otherwise. `researchAvailability` now returns `chainCost` — the
+node's price plus every prerequisite still outstanding — and the research panel shows that,
+with a matching day estimate, for any node the player cannot start yet. A tier-3 node used
+to advertise "39" and "~22d"; it now reads "76 all-in" and the estimate that follows from
+it.
+
+**Why not retune.** The two honest alternatives are to roughly double the insight budget or
+to cut the tier-3 chains to fit, and both change what the game is. The only lever measured
+that moves research at all is `baselineInsight` — the rate that applies with no laboratory —
+which raises completions from 4.3 to 6.8 nodes and wins from 9% to 15%, and does it by
+making the laboratory matter less. That is backwards for a science building. Tier 3 as
+content a run reaches for and rarely closes is a defensible shape; tier 3 mispriced in the
+panel was not.
+
+**What would change our mind.** A longer run length or a meta-progression that carries
+insight between runs — either would move the budget rather than the prices, which is the
+side of the equation the measurements point at. Or evidence that players read a locked tier
+as broken rather than as distant.

@@ -116,7 +116,16 @@ export function ResearchPanel() {
               <div key={tier} className="tree-tier">
                 <h3 className="label tree-tier-label">{t('research.tier', { tier })}</h3>
                 <ul className="tree-nodes">
-                  {nodes.map(({ node, ok, reason, cost, estimatedDays, completed, active: isActive }) => (
+                  {nodes.map(({ node, ok, reason, cost, chainCost, estimatedDays, chainDays, completed, active: isActive }) => {
+                    /*
+                     * A locked node is priced by its whole outstanding chain, not by its own
+                     * line in the data. The two are far apart at tier 3 — 39 listed against
+                     * 76 all-in for the cheapest — and showing only the list price made a
+                     * tier look one project away when it was three and out of budget.
+                     */
+                    const locked = !ok && !completed && !isActive;
+                    const showChain = locked && chainCost > cost;
+                    return (
                     <li
                       key={node.id}
                       className={`tree-node ${completed ? 'tree-done' : ''} ${isActive ? 'tree-active' : ''} ${
@@ -126,15 +135,17 @@ export function ResearchPanel() {
                     >
                       <div className="row gap-2">
                         <span className="tree-name grow">{researchName(node)}</span>
-                        <span className="num tone-muted">{cost}</span>
+                        <span className="num tone-muted">
+                          {showChain ? t('research.allIn', { cost: chainCost }) : cost}
+                        </span>
                       </div>
                       <p className="tree-desc">{researchDescription(node)}</p>
                       <p className="tree-effect hint">{researchEffect(node)}</p>
                       <div className="row gap-2">
                         <span className="tone-muted mono">{t(`research.branch.${node.branch}`)}</span>
-                        {estimatedDays !== null && !completed && (
+                        {!completed && (showChain ? chainDays : estimatedDays) !== null && (
                           <span className="tone-muted mono">
-                            {t('research.estimate', { days: estimatedDays })}
+                            {t('research.estimate', { days: (showChain ? chainDays : estimatedDays)! })}
                           </span>
                         )}
                         <span className="right">
@@ -161,7 +172,8 @@ export function ResearchPanel() {
                         </span>
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </div>
             );
