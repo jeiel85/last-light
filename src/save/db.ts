@@ -16,12 +16,17 @@ export const STORE_META = 'meta';
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
 function openDatabase(): Promise<IDBDatabase | null> {
-  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
   if (dbPromise) return dbPromise;
 
   dbPromise = new Promise((resolve) => {
     let request: IDBOpenDBRequest;
     try {
+      // Reading the global itself throws a SecurityError where storage is denied (sandboxed
+      // or third-party iframes with blocked storage), so the check sits inside the try.
+      if (typeof indexedDB === 'undefined') {
+        resolve(null);
+        return;
+      }
       request = indexedDB.open(DB_NAME, DB_VERSION);
     } catch {
       resolve(null);

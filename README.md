@@ -121,6 +121,7 @@ npm run preview      # serve the production build
 | `npm run e2e:install` | Install the Playwright browser once |
 | `npm run verify` | lint + test + build, the gate before a release |
 | `npm run deploy:pages` | Build with the correct base path for GitHub Pages |
+| `npm run pack:itch` | Build and zip `dist/` as `release/last-light-itch.zip` for itch.io |
 | `npm run screenshots` | Recapture the README screenshots from a running build |
 
 ---
@@ -312,6 +313,22 @@ To host at a sub-path elsewhere, set the base yourself:
 ```bash
 LASTLIGHT_BASE=/games/last-light/ npm run build
 ```
+
+A plain `npm run build` uses a relative base (`./`), so the same `dist/` also runs from any
+folder or inside an iframe.
+
+### itch.io
+
+```bash
+npm run pack:itch
+```
+
+writes `release/last-light-itch.zip` with `index.html` at its root, ready for an HTML upload.
+itch.io runs the game in an iframe on its own domain, so saves made there live in that
+domain's storage and are separate from the Pages build — move a run between them with
+**Saves → Export / Import**. If the browser blocks storage in the iframe, the game still runs;
+it just cannot save. The upload settings and the store-page text are in
+[`docs/itch/README.md`](docs/itch/README.md).
 
 ---
 
