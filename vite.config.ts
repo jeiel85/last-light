@@ -3,7 +3,12 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 
-const base = process.env.LASTLIGHT_BASE ?? '/';
+/*
+ * Relative by default, so the same dist/ runs from any path: the itch.io upload (served from
+ * an iframe under a per-upload directory) and a plain static folder. The Pages workflow still
+ * sets an absolute base so its 404.html fallback can load assets from a deep link.
+ */
+const base = process.env.LASTLIGHT_BASE ?? './';
 
 export default defineConfig({
   base,
