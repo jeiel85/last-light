@@ -24,6 +24,7 @@
     "deploy:pages": "tsx scripts/deploy-pages.ts",
     "pack:itch": "npm run build && node scripts/pack-itch.mjs",
     "screenshots": "tsx scripts/screenshots.ts",
+    "clip": "tsx scripts/make-clip.ts",
     "locales": "tsx scripts/locale-report.ts",
     "locales:extract": "tsx scripts/locale-extract.ts"
   },

@@ -48,6 +48,10 @@ wear out, and the world asks you a question you would rather not answer. A run l
 
 ## What it looks like
 
+A day, played: assign the crew, end the day, answer the night.
+
+![A run of LAST LIGHT](docs/clips/day-cycle.gif)
+
 Every pixel below is generated at run time — CSS, SVG, and procedural geometry. There are no
 image assets in the repository, and these shots are captured from a real build by
 `npm run screenshots`, so they cannot drift from the game.

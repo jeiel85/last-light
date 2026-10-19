@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { DIFFICULTY_BY_ID, ENDING_BY_ID, SCENARIO_BY_ID } from '@engine';
 import { useGameStore } from '@store/gameStore';
 import { useUiStore } from '@store/uiStore';
@@ -47,6 +47,7 @@ export function RunReport() {
   const abandonRun = useGameStore((s) => s.abandonRun);
   const setScreen = useUiStore((s) => s.setScreen);
   const t = useT();
+  const [copied, setCopied] = useState(false);
 
   const ending = state.ending!;
   const def = ENDING_BY_ID[ending.endingId];
@@ -62,6 +63,47 @@ export function RunReport() {
       })),
     [state.stats, t],
   );
+
+  const shareText = useMemo(() => {
+    const lines: string[] = [];
+    lines.push(`LAST LIGHT — Day ${state.day}, ${def ? endingName(def) : ending.endingId}`);
+    lines.push('');
+    lines.push(
+      `${scenario ? scenarioName(scenario) : state.scenarioId} · ${difficulty ? difficultyName(difficulty) : state.difficultyId} · seed ${state.seed}`,
+    );
+    lines.push('');
+    for (const row of stats.slice(0, 6)) {
+      lines.push(`${row.label}: ${row.value}`);
+    }
+    lines.push('');
+    lines.push(def ? endingSummary(def) : ending.summary);
+    lines.push('');
+    lines.push('https://jeiel85.github.io/last-light/');
+    return lines.join('\n');
+  }, [state, def, scenario, difficulty, stats, ending]);
+
+  async function handleShare() {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for contexts where the Clipboard API is unavailable.
+      const ta = document.createElement('textarea');
+      ta.value = shareText;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } finally {
+        document.body.removeChild(ta);
+      }
+    }
+  }
 
   return (
     <main className="report">
@@ -127,6 +169,9 @@ export function RunReport() {
         </div>
 
         <div className="row gap-2 report-actions">
+          <Button tone="primary" size="lg" onClick={handleShare}>
+            {copied ? t('report.shareCopied') : t('report.shareRun')}
+          </Button>
           <Button
             tone="primary"
             size="lg"

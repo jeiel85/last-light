@@ -516,6 +516,8 @@ export const EN_MESSAGES = {
   /* ------------------------------------------------------------------- report */
   'report.runAgain': 'Run it again',
   'report.backToMenu': 'Back to the menu',
+  'report.shareRun': 'Share this run',
+  'report.shareCopied': 'Copied — paste it anywhere',
   'report.theRun': 'The run',
   'report.whoWalkedOut': 'Who walked out',
   'report.nobody': 'Nobody.',

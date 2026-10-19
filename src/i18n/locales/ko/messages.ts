@@ -515,6 +515,8 @@ export const KO_MESSAGES: MessageBundle = {
   /* ------------------------------------------------------------------ report */
   'report.runAgain': '다시 시작',
   'report.backToMenu': '메뉴로',
+  'report.shareRun': '이 회차 공유',
+  'report.shareCopied': '복사됨 — 아무 곳에 붙여넣기',
   'report.theRun': '이번 회차',
   'report.whoWalkedOut': '걸어 나간 사람',
   'report.nobody': '아무도 없다.',
