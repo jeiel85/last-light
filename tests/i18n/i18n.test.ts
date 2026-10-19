@@ -6,6 +6,7 @@ import {
   LOCALES,
   bundleFor,
   contentKey,
+  detectLocale,
   getLocale,
   isLocaleId,
   loadLocale,
@@ -52,6 +53,29 @@ describe('locale registry', () => {
     await setLocale('xx' as never);
     expect(getLocale()).toBe('ko');
     expect(localeTag()).toBe('ko');
+  });
+});
+
+describe('first-run language detection', () => {
+  it('matches a regional tag on its primary subtag', () => {
+    expect(detectLocale(['ko-KR'])).toBe('ko');
+    expect(detectLocale(['ko-KP'])).toBe('ko');
+    expect(detectLocale(['en-GB'])).toBe('en');
+    // Case is not the browser's promise, so it is not the matcher's assumption.
+    expect(detectLocale(['KO-kr'])).toBe('ko');
+    expect(detectLocale(['ko_KR'])).toBe('ko');
+  });
+
+  it('walks the preference list rather than giving up on the first miss', () => {
+    // A Korean reader whose system language is one this game does not ship.
+    expect(detectLocale(['fr-FR', 'ko-KR', 'en'])).toBe('ko');
+    expect(detectLocale(['de', 'en-US'])).toBe('en');
+  });
+
+  it('falls back to English for a browser that prefers nothing it has', () => {
+    expect(detectLocale([])).toBe('en');
+    expect(detectLocale(['fr', 'de-DE'])).toBe('en');
+    expect(detectLocale([''])).toBe('en');
   });
 });
 

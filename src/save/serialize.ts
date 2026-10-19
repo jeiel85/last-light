@@ -152,10 +152,22 @@ export async function autosave(state: GameState): Promise<void> {
 
 const META_KEY = 'profile';
 
-export async function readMeta(): Promise<{ profile: MetaProfile; settings: Settings }> {
+/**
+ * Read the profile and settings.
+ *
+ * `fresh` reports that nothing was stored — a first visit on this browser, or a store that
+ * has been cleared. The boot path uses it to decide whether it is allowed to guess a
+ * language, which is a decision that must happen exactly once: guessing over a stored
+ * setting would override a choice the player made on purpose.
+ */
+export async function readMeta(): Promise<{
+  profile: MetaProfile;
+  settings: Settings;
+  fresh: boolean;
+}> {
   const raw = await dbGet<MetaFile>(STORE_META, META_KEY);
   if (!raw || raw.magic !== MAGIC) {
-    return { profile: createMetaProfile(), settings: { ...DEFAULT_SETTINGS } };
+    return { profile: createMetaProfile(), settings: { ...DEFAULT_SETTINGS }, fresh: true };
   }
   const profile: MetaProfile = { ...createMetaProfile(), ...raw.profile, version: META_VERSION };
   const settings: Settings = { ...DEFAULT_SETTINGS, ...raw.settings };
@@ -165,7 +177,7 @@ export async function readMeta(): Promise<{ profile: MetaProfile; settings: Sett
    * is the source of truth, so an unknown id resolves to it rather than to a blank.
    */
   if (!isLocaleId(settings.locale)) settings.locale = DEFAULT_LOCALE;
-  return { profile, settings };
+  return { profile, settings, fresh: false };
 }
 
 export async function writeMeta(profile: MetaProfile, settings: Settings): Promise<boolean> {

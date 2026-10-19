@@ -25,7 +25,7 @@ import {
 } from '@engine';
 import { autosave, deleteSlot, readMeta, readSlot, writeMeta } from '@save/serialize';
 import { AUTOSAVE_SLOT } from '@save/schema';
-import { setLocale } from '@i18n';
+import { detectLocale, setLocale } from '@i18n';
 import type { Settings } from '@save/schema';
 import { DEFAULT_SETTINGS } from '@save/schema';
 
@@ -104,6 +104,20 @@ function mutate(
   set({ state: produce(current, recipe) });
 }
 
+/**
+ * The browser's language preferences, in order.
+ *
+ * `navigator.languages` is the modern list; `navigator.language` is the fallback for
+ * engines that only ever implemented the older single value. A test environment with no
+ * DOM gets an empty list, which `detectLocale` resolves to English.
+ */
+function preferredLanguages(): readonly string[] {
+  if (typeof navigator === 'undefined') return [];
+  const list = navigator.languages;
+  if (list && list.length > 0) return list;
+  return navigator.language ? [navigator.language] : [];
+}
+
 export const useGameStore = create<GameStoreState>((set, get) => ({
   state: null,
   profile: {
@@ -124,13 +138,34 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   dayTick: 0,
 
   async bootstrap() {
-    const { profile, settings } = await readMeta();
-    /*
-     * Awaited, not fired off: a locale's text is fetched on demand now, and a first paint
-     * in English that flips to Korean a moment later reads as a bug to the player who
-     * chose Korean. Boot is already waiting on storage, so this costs one parallel fetch.
-     */
-    await setLocale(settings.locale);
+    const { profile, settings, fresh } = await readMeta();
+
+    if (fresh) {
+      /*
+       * A first visit opens in the language the browser asks for.
+       *
+       * The alternative — English always, Korean behind a trip into Settings — puts a wall
+       * in front of exactly the players most likely to arrive from a Korean link. The guess
+       * is written back immediately, so this stays a first-visit behaviour: from the next
+       * load the stored setting is the only input, and a Korean speaker who prefers English
+       * never has the choice renegotiated with.
+       */
+      settings.locale = detectLocale(preferredLanguages());
+      /*
+       * Assigned from the resolved value rather than the intent: `setLocale` falls back to
+       * English when the translation chunk cannot be fetched, and a setting that claims
+       * Korean over an English screen is worse than an honest English one.
+       */
+      settings.locale = await setLocale(settings.locale);
+      void writeMeta(profile, settings);
+    } else {
+      /*
+       * Awaited, not fired off: a locale's text is fetched on demand now, and a first paint
+       * in English that flips to Korean a moment later reads as a bug to the player who
+       * chose Korean. Boot is already waiting on storage, so this costs one parallel fetch.
+       */
+      await setLocale(settings.locale);
+    }
 
     /*
      * A finished run is restored on load so its report survives a refresh. An ending is the

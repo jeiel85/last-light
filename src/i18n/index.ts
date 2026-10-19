@@ -8,7 +8,7 @@ import {
   type LocaleId,
 } from './types';
 
-export { LOCALES, DEFAULT_LOCALE, isLocaleId } from './types';
+export { LOCALES, DEFAULT_LOCALE, isLocaleId, detectLocale } from './types';
 export type { LocaleId, LocaleDef, ContentTable } from './types';
 export type { MessageKey } from './messages';
 export { EN_MESSAGES } from './messages';

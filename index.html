@@ -5,9 +5,50 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0c0d" />
-    <meta name="description" content="A survival-management roguelite. Keep a handful of strangers alive in an underground vault after the world went quiet." />
+    <meta
+      name="description"
+      content="A survival-management roguelite. Keep a handful of strangers alive in an underground vault after the world went quiet."
+    />
     <meta name="color-scheme" content="dark" />
-    <title>LAST LIGHT</title>
+    <title>LAST LIGHT — a survival-management roguelite</title>
+
+    <!--
+      Link previews.
+
+      Absolute URLs, not relative ones: a crawler fetches this HTML and resolves nothing
+      against it, so `./og.png` is a broken image on every platform that matters. The
+      canonical home is the Pages build; the itch.io copy runs inside an iframe and never
+      shows a preview card, so carrying this URL there costs nothing.
+
+      The card itself is drawn by `npm run og` from the same palette and wordmark as the
+      game, so it cannot drift from what a player actually sees after the click.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="LAST LIGHT" />
+    <meta property="og:url" content="https://jeiel85.github.io/last-light/" />
+    <meta property="og:title" content="LAST LIGHT — a survival-management roguelite" />
+    <meta
+      property="og:description"
+      content="Eleven weeks ago the world went quiet. Command a handful of survivors inside an underground vault: assign the work, ration the water, go outside, and live with what comes back."
+    />
+    <meta property="og:image" content="https://jeiel85.github.io/last-light/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="LAST LIGHT title card: an amber line drawing of a vault cross-section on a dark background."
+    />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ko_KR" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="LAST LIGHT — a survival-management roguelite" />
+    <meta
+      name="twitter:description"
+      content="Keep a handful of strangers alive in an underground vault after the world went quiet. Browser, free, English and 한국어."
+    />
+    <meta name="twitter:image" content="https://jeiel85.github.io/last-light/og.png" />
   </head>
   <body>
     <div id="root"></div>

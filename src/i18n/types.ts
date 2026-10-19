@@ -35,6 +35,30 @@ export function isLocaleId(value: unknown): value is LocaleId {
 }
 
 /**
+ * Choose a starting language from the browser's preference list.
+ *
+ * Consulted once, on a first run with no stored profile. After that the player's own
+ * choice in Settings is the answer, and this never runs again — a Korean speaker who
+ * prefers the English text should not be re-negotiated with on every visit.
+ *
+ * Matching is on the primary subtag, so `ko-KR`, `ko-KP` and a bare `ko` all land on
+ * Korean; a language the game does not ship falls through to the next preference rather
+ * than giving up on the list, because `['fr-FR', 'ko-KR']` is a Korean reader whose system
+ * language is simply not supported.
+ *
+ * Pure and list-in rather than reading `navigator` itself: the engine and the tests both
+ * import this module, and neither has a DOM.
+ */
+export function detectLocale(languages: readonly string[]): LocaleId {
+  for (const language of languages) {
+    const primary = language.toLowerCase().split(/[-_]/)[0];
+    const match = LOCALES.find((l) => l.id === primary);
+    if (match) return match.id;
+  }
+  return DEFAULT_LOCALE;
+}
+
+/**
  * The content tables a locale may translate.
  *
  * Keys are `<table>.<id>.<field>`, and for nested content — an event's choices, a facility's
