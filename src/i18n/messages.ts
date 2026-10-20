@@ -26,6 +26,7 @@ export const EN_MESSAGES = {
   'menu.stat.best': 'Best',
   'menu.stat.endings': 'Endings',
   'menu.stat.archive': 'Archive',
+  'menu.source': 'Source code on GitHub (opens in a new tab)',
 
   /* ------------------------------------------------------------------- setup */
   'hint.gentle': 'gentle',
