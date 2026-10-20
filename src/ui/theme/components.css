@@ -364,6 +364,19 @@
 }
 
 .menu-stats dd { margin: 0; font-size: var(--fs-md); color: var(--ink-2); }
+.menu-source {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink-3);
+  text-decoration: none;
+}
+.menu-source:hover,
+.menu-source:focus-visible { color: var(--amber); }
 
 /* --------------------------------------------------------------- setup */
 

@@ -28,6 +28,7 @@ export const KO_MESSAGES: MessageBundle = {
   'menu.stat.best': '최장',
   'menu.stat.endings': '엔딩',
   'menu.stat.archive': '기록',
+  'menu.source': 'GitHub 소스 코드 (새 탭에서 열림)',
 
   /* ------------------------------------------------------------------- setup */
   'hint.gentle': '순함',
