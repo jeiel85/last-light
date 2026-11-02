@@ -2,7 +2,7 @@
 /**
  * Generate the PWA icons and the favicon.
  *
- * The project ships no hand-authored art, so the icons are drawn here: a dark plate with
+ * The icons are drawn in code rather than generated like the scene art: a dark plate with
  * an amber aperture, the same shape as the title treatment. PNG encoding is done directly
  * against node's zlib rather than pulling in an image library for three files.
  */

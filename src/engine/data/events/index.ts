@@ -39,3 +39,38 @@ export const EVENT_BY_ID: Record<EventId, EventDef> = Object.fromEntries(
 );
 
 export const EVENT_COUNT = EVENTS.length;
+
+/**
+ * Which catalogue module an event was authored in. The UI uses it to pick a scene image,
+ * so it follows the file layout above rather than tags, which overlap freely.
+ */
+export type EventTheme =
+  | 'onboarding'
+  | 'survival'
+  | 'social'
+  | 'facility'
+  | 'radio'
+  | 'strangers'
+  | 'medical'
+  | 'environment'
+  | 'moral'
+  | 'chain'
+  | 'meridian';
+
+const THEMED: readonly [EventTheme, readonly EventDef[]][] = [
+  ['onboarding', ONBOARDING_EVENTS],
+  ['survival', SURVIVAL_EVENTS],
+  ['social', SOCIAL_EVENTS],
+  ['facility', FACILITY_EVENTS],
+  ['radio', RADIO_EVENTS],
+  ['strangers', STRANGER_EVENTS],
+  ['medical', MEDICAL_EVENTS],
+  ['environment', ENVIRONMENT_EVENTS],
+  ['moral', MORAL_EVENTS],
+  ['chain', CHAIN_EVENTS],
+  ['meridian', MERIDIAN_EVENTS],
+];
+
+export const EVENT_THEME: Record<EventId, EventTheme> = Object.fromEntries(
+  THEMED.flatMap(([theme, events]) => events.map((e) => [e.id, theme] as const)),
+);

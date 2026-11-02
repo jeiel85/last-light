@@ -10,6 +10,7 @@ import { HelpModal } from '@ui/modals/HelpModal';
 import { listSlots } from '@save/serialize';
 import { AUTOSAVE_SLOT } from '@save/schema';
 import { useT } from '@ui/hooks/useTranslation';
+import { titleArt } from '@ui/art';
 
 /**
  * The title screen. It exists mostly to answer three questions: is there a run to
@@ -30,8 +31,11 @@ export function MainMenu() {
     });
   }, []);
 
+  const art = titleArt();
+
   return (
     <main className="menu">
+      {art && <img className="menu-art" src={art} alt="" />}
       <div className="menu-inner">
         <p className="eyebrow">{t('app.eyebrow')}</p>
         <h1 className="menu-title flicker">

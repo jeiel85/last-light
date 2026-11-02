@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { presentEvent, RESOURCES } from '@engine';
+import { EVENT_THEME, presentEvent, RESOURCES } from '@engine';
 import type { EventResolution } from '@engine';
 import { useGameStore } from '@store/gameStore';
 import { Modal } from '@ui/components/Modal';
@@ -9,6 +9,7 @@ import { announce } from '@ui/hooks/announce';
 import { playCue } from '@ui/audio/cues';
 import { useT } from '@ui/hooks/useTranslation';
 import { occupationOf } from '@ui/lib/labels';
+import { eventArt } from '@ui/art';
 import { eventBody, eventChoiceText, eventTitle, resourceName, skillName } from '@i18n/content';
 
 /**
@@ -30,6 +31,8 @@ export function EventModal() {
 
   if (!presentation) return null;
   const { event, actor, choices, remaining } = presentation;
+  const art = eventArt(EVENT_THEME[event.id]);
+  const scene = art && <img className="scene-art event-art" src={art} alt="" />;
 
   const choose = (choiceId: string) => {
     const result = resolve(choiceId);
@@ -62,6 +65,7 @@ export function EventModal() {
           </Button>
         }
       >
+        {scene}
         <p className="prose">{outcome.resultText}</p>
         {outcome.rollDetail && (
           <p className="roll mono">
@@ -92,6 +96,7 @@ export function EventModal() {
       dismissible={false}
       size="narrow"
     >
+      {scene}
       {actor && (
         <div className="event-actor">
           <Portrait survivor={actor} size={40} />

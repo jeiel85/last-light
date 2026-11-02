@@ -115,3 +115,23 @@ panel was not.
 insight between runs — either would move the budget rather than the prices, which is the
 side of the equation the measurements point at. Or evidence that players read a locked tier
 as broken rather than as distant.
+
+## 4. Scene art is generated, bundled, and decorative
+
+The game was text on dark panels; thirty illustrations now sit where the text sets a scene —
+the title backdrop, a banner on each event (one per catalogue module), a strip under the
+day's weather, and a hero image on each ending. They were generated with Codex's built-in
+image tool from one shared art direction (`docs/art/README.md`), re-encoded to 960px WebP
+(title 1600px), about 1.6 MB in all.
+
+**Why bundled, not fetched.** The game is a PWA and an itch.io upload that must work offline,
+so the images go through Vite (`src/ui/art/`) and into the precache like everything else.
+1.6 MB on first load buys an offline game whose events never show a blank box.
+
+**Why decorative only.** Every image has an empty `alt` and no rule reads it: the prose
+beside it is the content, so a missing file costs atmosphere, not information. A unit test
+checks that every event theme, weather and ending has a file, since the UI would not show
+the gap.
+
+**What would change our mind.** Per-event art (127 events) or art that carries information
+the text does not — either would need a lazy-loading budget and real alt text.
