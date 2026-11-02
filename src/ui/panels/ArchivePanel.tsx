@@ -13,7 +13,8 @@ import type { LoreDef } from '@engine';
 import { useGameStore } from '@store/gameStore';
 import { Panel, EmptyState } from '@ui/components/Panel';
 import { Tabs } from '@ui/components/Tabs';
-import { Icon } from '@ui/components/Icon';
+import { Thumb } from '@ui/components/Thumb';
+import { facilityArt, itemArt } from '@ui/art';
 import { useT } from '@ui/hooks/useTranslation';
 import type { MessageKey } from '@i18n';
 import {
@@ -161,7 +162,7 @@ export function ArchivePanel() {
           <ul className="ency-list">
             {FACILITIES.filter((f) => match(facilityName(f)) || match(facilityDescription(f))).map((f) => (
               <li key={f.id}>
-                <Icon name={f.icon} size={20} className="build-icon" />
+                <Thumb art={facilityArt(f.id)} icon={f.icon} />
                 <span className="col">
                   <strong>
                     {facilityName(f)}{' '}
@@ -190,7 +191,7 @@ export function ArchivePanel() {
           <ul className="ency-list">
             {ITEMS.filter((i) => match(itemName(i)) || match(itemDescription(i))).map((item) => (
               <li key={item.id}>
-                <Icon name={item.icon} size={20} className="build-icon" />
+                <Thumb art={itemArt(item.id)} icon={item.icon} />
                 <span className="col">
                   <strong>{itemName(item)}</strong>
                   <span className="tone-muted">{itemDescription(item)}</span>

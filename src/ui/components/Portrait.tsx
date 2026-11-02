@@ -1,13 +1,16 @@
 import { useMemo } from 'react';
 import type { Survivor } from '@engine';
 import { useT } from '@ui/hooks/useTranslation';
+import { useGameStore } from '@store/gameStore';
+import { assignPortraits } from '@ui/art';
 
 /**
- * Procedural survivor portraits.
+ * Survivor portraits.
  *
  * Every survivor carries a `portraitSeed`, so the same person always renders the same
- * face across saves. The drawing is deliberately abstract — silhouette, hair mass, and a
- * few marks — because vaguely-suggested faces read better at 32px than detailed ones.
+ * face across saves. The face is a painted portrait chosen by pronouns and age band (see
+ * `assignPortraits`); the procedural drawing below is the fallback when no painting fits.
+ * Death and injury are marked over either one, so neither is signalled by the face alone.
  */
 
 function mulberry(seed: number): () => number {
@@ -25,6 +28,11 @@ const HAIR = ['#1b1613', '#3a2b21', '#6b4a2f', '#8a8378', '#c9c2b6', '#2a2f36', 
 
 export function Portrait({ survivor, size = 40 }: { survivor: Survivor; size?: number }) {
   const t = useT();
+  const roster = useGameStore((s) => s.state?.survivors);
+  const painted = useMemo(() => {
+    const crew = roster?.some((s) => s.id === survivor.id) ? roster : [survivor];
+    return assignPortraits(crew).get(survivor.id);
+  }, [roster, survivor]);
   const art = useMemo(() => {
     const rnd = mulberry(survivor.portraitSeed);
     const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(rnd() * arr.length)]!;
@@ -43,6 +51,28 @@ export function Portrait({ survivor, size = 40 }: { survivor: Survivor; size?: n
 
   const dead = !survivor.alive;
   const hurt = survivor.health < 45;
+  const label = t('survivor.portrait', { name: `${survivor.name} ${survivor.surname}` });
+
+  if (painted) {
+    return (
+      <span
+        className={`portrait portrait-art ${dead ? 'portrait-dead' : ''} ${hurt && !dead ? 'portrait-hurt' : ''}`}
+        style={{ width: size, height: size }}
+        role="img"
+        aria-label={label}
+      >
+        <img src={painted} alt="" width={size} height={size} />
+        {dead && (
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <g stroke="var(--alarm)" strokeWidth="1.6" opacity="0.8">
+              <line x1="12" y1="12" x2="36" y2="36" />
+              <line x1="36" y1="12" x2="12" y2="36" />
+            </g>
+          </svg>
+        )}
+      </span>
+    );
+  }
 
   return (
     <svg
@@ -51,7 +81,7 @@ export function Portrait({ survivor, size = 40 }: { survivor: Survivor; size?: n
       height={size}
       viewBox="0 0 48 48"
       role="img"
-      aria-label={t('survivor.portrait', { name: `${survivor.name} ${survivor.surname}` })}
+      aria-label={label}
     >
       <defs>
         <clipPath id={`pc-${survivor.id}`}>

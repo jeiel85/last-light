@@ -7,6 +7,7 @@ import { Panel, EmptyState } from '@ui/components/Panel';
 import { Button } from '@ui/components/Button';
 import { Bar } from '@ui/components/Bar';
 import { Icon } from '@ui/components/Icon';
+import { locationArt } from '@ui/art';
 import { Guidance } from '@ui/components/Guidance';
 import { useT } from '@ui/hooks/useTranslation';
 import { siteName } from '@ui/lib/labels';
@@ -162,9 +163,11 @@ function LocationInspector({
   const travelDays = World.travelDaysFor(state, location);
   const reachable = location.ring <= World.unlockedRing(state);
   const haul = archetype ? World.expectedHaul(archetype, location, 4) : [];
+  const siteArt = knowledge.archetype && archetype ? locationArt(archetype.id) : undefined;
 
   return (
     <Panel title={siteName(location)} note={t(`map.state.${location.state}`)}>
+      {siteArt && <img className="scene-art site-art" src={siteArt} alt="" />}
       <p className="prose">
         {knowledge.archetype && archetype ? locationDescription(archetype) : t('map.unknownSite')}
       </p>

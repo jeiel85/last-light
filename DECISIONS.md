@@ -135,3 +135,16 @@ the gap.
 
 **What would change our mind.** Per-event art (127 events) or art that carries information
 the text does not — either would need a lazy-loading budget and real alt text.
+
+**Extended to the things in the game.** 139 more images followed the same rules: a 44px
+painted thumbnail for every item and facility in list rows, a faded room behind each built
+facility slot, a banner for every site in the map inspector and on expeditions, and painted
+survivor portraits. The bundle is now about 3.9 MB of art. The 16–24px glyphs (tabs,
+stores, map nodes) stay SVG: a painting at that size is a smudge, and the glyphs are
+theme-aware.
+
+**Why a portrait pool, not a portrait per survivor.** Survivors are generated, so no fixed
+set of paintings can be one-per-person. 45 faces are grouped by pronouns and age band, picked
+by the existing `portraitSeed`, and de-duplicated within a vault in roster order so a
+newcomer never changes an existing face. Death and injury are drawn over the painting, so
+they never depend on the face. The procedural SVG remains as the fallback.

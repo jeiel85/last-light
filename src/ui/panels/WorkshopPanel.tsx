@@ -8,7 +8,8 @@ import { Bar } from '@ui/components/Bar';
 import { Tabs } from '@ui/components/Tabs';
 import { BreakdownPopover } from '@ui/components/BreakdownPopover';
 import { Guidance } from '@ui/components/Guidance';
-import { Icon } from '@ui/components/Icon';
+import { Thumb } from '@ui/components/Thumb';
+import { itemArt } from '@ui/art';
 import { useT } from '@ui/hooks/useTranslation';
 import { t } from '@i18n';
 import { itemDescription, itemName, resourceName } from '@i18n/content';
@@ -133,7 +134,7 @@ export function WorkshopPanel() {
             const item = ITEM_BY_ID[recipe.itemId];
             return (
               <li key={recipe.id} className={`recipe-row ${ok ? '' : 'recipe-row-off'}`}>
-                <Icon name={item?.icon ?? 'parts'} size={20} className="build-icon" />
+                <Thumb art={itemArt(recipe.itemId)} icon={item?.icon ?? 'parts'} />
                 <span className="col grow">
                   <span className="recipe-name">
                     {item ? itemName(item) : recipe.itemId}
@@ -184,7 +185,7 @@ export function WorkshopPanel() {
         <ul className="inv-list">
           {inventory.map(({ entry, def }) => (
             <li key={entry.itemId} className="inv-row">
-              <Icon name={def.icon} size={20} className="build-icon" />
+              <Thumb art={itemArt(def.id)} icon={def.icon} />
               <span className="col grow">
                 <span>
                   {itemName(def)} <span className="num tone-muted">×{entry.count}</span>
