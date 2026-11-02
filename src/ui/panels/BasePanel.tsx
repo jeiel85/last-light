@@ -8,6 +8,8 @@ import { Bar } from '@ui/components/Bar';
 import { BreakdownPopover } from '@ui/components/BreakdownPopover';
 import { Guidance } from '@ui/components/Guidance';
 import { Icon } from '@ui/components/Icon';
+import { Thumb } from '@ui/components/Thumb';
+import { facilityArt } from '@ui/art';
 import { announce } from '@ui/hooks/announce';
 import { useT } from '@ui/hooks/useTranslation';
 import { t } from '@i18n';
@@ -142,7 +144,7 @@ export function BasePanel() {
                 const level = def.levels[0];
                 return (
                   <li key={def.id} className={`build-row ${!permitted || !check.ok ? 'build-row-off' : ''}`}>
-                    <Icon name={def.icon} size={20} className="build-icon" />
+                    <Thumb art={facilityArt(def.id)} icon={def.icon} />
                     <span className="col grow">
                       <span className="build-name">{facilityName(def)}</span>
                       <span className="build-desc tone-muted">{facilityLevelSummary(def, 1)}</span>
@@ -238,6 +240,7 @@ function SlotCell({
   onSelect: () => void;
 }) {
   const def = facility ? Facilities.facilityDef(facility) : null;
+  const art = def ? facilityArt(def.id) : undefined;
   const t = useT();
   const classes = [
     'slot',
@@ -252,6 +255,7 @@ function SlotCell({
 
   return (
     <button type="button" className={classes} onClick={onSelect} aria-pressed={active}>
+      {art && <img className="slot-art" src={art} alt="" />}
       <span className="slot-icon">
         {def ? <Icon name={def.icon} size={22} /> : <Icon name={slot.sealed ? 'warning' : 'more'} size={18} />}
       </span>

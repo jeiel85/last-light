@@ -6,6 +6,7 @@ import { Modal } from '@ui/components/Modal';
 import { Button } from '@ui/components/Button';
 import { playCue } from '@ui/audio/cues';
 import { Icon } from '@ui/components/Icon';
+import { locationArt } from '@ui/art';
 import { announce } from '@ui/hooks/announce';
 import { useT } from '@ui/hooks/useTranslation';
 import { siteName } from '@ui/lib/labels';
@@ -53,24 +54,28 @@ export function ExpeditionModal() {
     announce(t('event.outcomeAnnounced'));
   };
 
+  const art = archetype ? locationArt(archetype.id) : undefined;
   const header = (
-    <div className="exped-head">
-      <span className="exped-loc">
-        <Icon name={archetype?.icon ?? 'hatch'} size={16} />{' '}
-        {location ? siteName(location) : t('exped.somewhere')}
-      </span>
-      <span className="mono tone-muted">
-        {beat
-          ? t('exped.beatOf', { index: expedition.log.length + 1, total: beat.total })
-          : t('exped.beat', { index: expedition.log.length + 1 })}
-      </span>
-      <span className="mono tone-muted">
-        {t('exped.supplies', {
-          ammo: Math.round(expedition.loadout.ammo),
-          rations: Math.round(expedition.loadout.rations),
-        })}
-      </span>
-    </div>
+    <>
+      {art && <img className="scene-art event-art" src={art} alt="" />}
+      <div className="exped-head">
+        <span className="exped-loc">
+          <Icon name={archetype?.icon ?? 'hatch'} size={16} />{' '}
+          {location ? siteName(location) : t('exped.somewhere')}
+        </span>
+        <span className="mono tone-muted">
+          {beat
+            ? t('exped.beatOf', { index: expedition.log.length + 1, total: beat.total })
+            : t('exped.beat', { index: expedition.log.length + 1 })}
+        </span>
+        <span className="mono tone-muted">
+          {t('exped.supplies', {
+            ammo: Math.round(expedition.loadout.ammo),
+            rations: Math.round(expedition.loadout.rations),
+          })}
+        </span>
+      </div>
+    </>
   );
 
   /*
