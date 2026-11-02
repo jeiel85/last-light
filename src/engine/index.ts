@@ -40,7 +40,7 @@ export {
 } from './data/research';
 export { LOCATION_ARCHETYPES, ARCHETYPE_BY_ID } from './data/locations';
 export { ENCOUNTERS, ENCOUNTER_BY_ID, ENEMIES, ENEMY_BY_ID } from './data/encounters';
-export { EVENTS, EVENT_BY_ID, EVENT_COUNT } from './data/events';
+export { EVENTS, EVENT_BY_ID, EVENT_COUNT, EVENT_THEME, type EventTheme } from './data/events';
 export { LORE, LORE_BY_ID, THEORY_LABEL, THEORY_SUMMARY } from './data/lore';
 export { SCENARIOS, SCENARIO_BY_ID, DEFAULT_SCENARIO } from './data/scenarios';
 export { DIFFICULTIES, DIFFICULTY_BY_ID, DEFAULT_DIFFICULTY } from './data/difficulties';

@@ -5,6 +5,7 @@ import { useUiStore } from '@store/uiStore';
 import { Button } from '@ui/components/Button';
 import { Panel } from '@ui/components/Panel';
 import { useT } from '@ui/hooks/useTranslation';
+import { endingArt } from '@ui/art';
 import type { MessageKey } from '@i18n';
 import {
   difficultyName,
@@ -53,6 +54,7 @@ export function RunReport() {
   const def = ENDING_BY_ID[ending.endingId];
   const scenario = SCENARIO_BY_ID[state.scenarioId];
   const difficulty = DIFFICULTY_BY_ID[state.difficultyId];
+  const art = endingArt(ending.endingId);
 
   const stats = useMemo(
     () =>
@@ -108,6 +110,7 @@ export function RunReport() {
   return (
     <main className="report">
       <div className="report-inner">
+        {art && <img className="scene-art report-art" src={art} alt="" />}
         <p className="eyebrow">
           {t('report.seed', {
             scenario: scenario ? scenarioName(scenario) : state.scenarioId,

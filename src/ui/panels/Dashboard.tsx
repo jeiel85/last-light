@@ -20,6 +20,7 @@ import { BreakdownPopover } from '@ui/components/BreakdownPopover';
 import { Portrait } from '@ui/components/Portrait';
 import { Guidance } from '@ui/components/Guidance';
 import { useT } from '@ui/hooks/useTranslation';
+import { weatherArt } from '@ui/art';
 import {
   facilityName as facilityLabel,
   researchName,
@@ -150,6 +151,7 @@ export function Dashboard() {
   }, [state, flows, power, setPanel, t]);
 
   const weather = WEATHER[state.weather.id];
+  const weatherImage = weatherArt(state.weather.id);
   const away = state.expeditions.filter((e) => !e.resolved);
   const activeResearch = state.research.active;
   const activeResearchDef = activeResearch ? RESEARCH_BY_ID[activeResearch.id] : undefined;
@@ -223,9 +225,18 @@ export function Dashboard() {
           label={t('dash.powerLoad')}
         />
         <hr className="divider" />
-        <p className="prose">
-          <strong>{weatherName(weather)}.</strong> {weatherDescription(weather)}
-        </p>
+        {weatherImage ? (
+          <figure className="weather-card">
+            <img className="scene-art" src={weatherImage} alt="" />
+            <figcaption className="prose">
+              <strong>{weatherName(weather)}.</strong> {weatherDescription(weather)}
+            </figcaption>
+          </figure>
+        ) : (
+          <p className="prose">
+            <strong>{weatherName(weather)}.</strong> {weatherDescription(weather)}
+          </p>
+        )}
         {activeResearch ? (
           <div className="research-strip">
             <span className="label">{t('dash.researching')}</span>
